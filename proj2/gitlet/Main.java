@@ -1,5 +1,6 @@
 package gitlet;
-
+// 静态导入目标类的所有静态方法，并且可以直接使用方法名调用而不用类名.方法名
+import static gitlet.Utils.*;
 /** Driver class for Gitlet, a subset of the Git version-control system.
  *  @author TODO
  */
@@ -10,15 +11,41 @@ public class Main {
      */
     public static void main(String[] args) {
         // TODO: what if args is empty?
+        // TODO: 使用异常机制
+        // TODO: 使用异步GC
+        if (args.length == 0) {
+            exit("Please enter a command.");
+        }
         String firstArg = args[0];
         switch(firstArg) {
             case "init":
                 // TODO: handle the `init` command
+                checkArgsValid(args, 1);
+                Repository.init();
                 break;
             case "add":
                 // TODO: handle the `add [filename]` command
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+                Repository.add(args[1]);
                 break;
-            // TODO: FILL THE REST IN
+            case "commit":
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+                Repository.commit(args[1]);
+                break;
+            case "rm":
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+                Repository.rm(args[1]);
+                break;
+        }
+    }
+
+    public static void checkArgsValid(String[] args, int num){
+        // todo: 使用异常机制
+        if(args.length != num){
+            exit("Incorrect operands.");
         }
     }
 }

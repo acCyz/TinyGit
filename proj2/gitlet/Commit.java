@@ -2,7 +2,11 @@ package gitlet;
 
 // TODO: any imports you need here
 
+import java.io.File;
+import java.io.Serializable;
+import java.util.*;
 import java.util.Date; // TODO: You'll likely use this in this class
+import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
  *  TODO: It's a good idea to give a description here of what else this Class
@@ -10,7 +14,7 @@ import java.util.Date; // TODO: You'll likely use this in this class
  *
  *  @author TODO
  */
-public class Commit {
+public class Commit implements Serializable {
     /**
      * TODO: add instance variables here.
      *
@@ -19,8 +23,58 @@ public class Commit {
      * variable is used. We've provided one example for `message`.
      */
 
+    /** 注意，所有static标签标记的变量都不会被存储，所以声明变量时不要加static */
     /** The message of this Commit. */
+    private String id;
+
     private String message;
 
-    /* TODO: fill in the rest of this class. */
+    //private Date currentTime;
+
+    //private File commitSaveFileName;
+
+    private String timeStamp;
+
+    private Map<String, String> pathToBlobID;
+
+    private List<String> parents;
+
+    /** default constructor */
+    public Commit(){
+        this.message = "initial commit";
+        this.timeStamp = dateToTimeStamp(new Date());
+        this.parents = new ArrayList<>();
+        this.pathToBlobID = new HashMap<>();
+        this.id = generateSha1ID();
+    }
+
+    public Commit(String message, Map<String, String> pathToBlobID, List<String> parents) {
+        this.message = message;
+        this.timeStamp = dateToTimeStamp(new Date());
+        this.parents = parents;
+        this.pathToBlobID = pathToBlobID;
+        this.id = generateSha1ID();
+    }
+
+    private String generateSha1ID(){
+        return sha1(this.message,this.timeStamp,this.parents.toString(),this.pathToBlobID.toString());
+    }
+
+    public String getID() {
+        return this.id;
+    }
+
+    public boolean isContainBlob(String filePath, String blobID){
+        String queryBlobID = pathToBlobID.getOrDefault(filePath, "");
+        return blobID.equals(queryBlobID);
+    }
+
+    public void persist(File COMMIT_DIR) {
+        File file = join(COMMIT_DIR, this.getID()); // now, without Tries firstly...
+        writeObject(file, this);
+    }
+
+
+
+
 }

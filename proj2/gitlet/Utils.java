@@ -14,9 +14,9 @@ import java.nio.file.Paths;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.Formatter;
-import java.util.List;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 
 /** Assorted utilities.
@@ -191,14 +191,14 @@ class Utils {
     /* OTHER FILE UTILITIES */
 
     /** Return the concatentation of FIRST and OTHERS into a File designator,
-     *  analogous to the {@link java.nio.file.Paths.#get(String, String[])}
+     *  analogous to the { java.nio.file.Paths.#get(String, String[])}
      *  method. */
     static File join(String first, String... others) {
         return Paths.get(first, others).toFile();
     }
 
     /** Return the concatentation of FIRST and OTHERS into a File designator,
-     *  analogous to the {@link java.nio.file.Paths.#get(String, String[])}
+     *  analogous to the { java.nio.file.Paths.#get(String, String[])}
      *  method. */
     static File join(File first, String... others) {
         return Paths.get(first.getPath(), others).toFile();
@@ -236,4 +236,50 @@ class Utils {
         System.out.printf(msg, args);
         System.out.println();
     }
+
+
+    /* *************************************************************************************** */
+    /**
+     * Print a message and exit with status code 0.
+     *
+     * @param message String to print
+     * @param args Arguments referenced by the format specifiers in the format string
+     */
+    public static void exit(String message, Object... args) {
+        message(message, args);
+        System.exit(0);
+    }
+
+    /*
+     * Create a directory from the File object.
+     *
+     * @param dir Directory File instance
+     */
+    public static void mkdir(File dir) {
+        if (!dir.mkdir()) {
+            throw new IllegalArgumentException(String.format("mkdir: %s: Failed to create.", dir.getPath()));
+        }
+    }
+
+    public static boolean deleteFile(File file) {
+        if (!file.isDirectory()) {
+            if (file.exists()) {
+                return file.delete();
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    /** Trans curDate to TimeStamp format
+     * 将Date转化为格式化字符串是利用SimpleDateFormat类继承自 java.text.DateFormat类的format方法实现的
+     * */
+    public static String dateToTimeStamp(Date date) {
+        DateFormat dateFormat = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy Z", Locale.US);
+        return dateFormat.format(date);
+    }
+
+
 }
