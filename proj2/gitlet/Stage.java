@@ -12,7 +12,7 @@ public class Stage implements Serializable{
     private Map<String, String> index;
 
     public Stage(){
-        index = new HashMap<>();
+        index = new TreeMap<>();
     }
 
     public void replace(String filePath, String blobID){

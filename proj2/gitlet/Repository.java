@@ -1,6 +1,8 @@
 package gitlet;
 
 
+import jdk.nashorn.internal.runtime.regexp.joni.ast.StringNode;
+
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -164,14 +166,14 @@ public class Repository {
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
-    public static Stage loadAddStage(){
+    private static Stage loadAddStage(){
         if (!ADDSTAGE_FILE.exists()) {
             return new Stage();
         }
         return readObject(ADDSTAGE_FILE, Stage.class);
     }
 
-    public static Stage loadRemoveStage(){
+    private static Stage loadRemoveStage(){
         if (!REMOVESTAGE_FILE.exists()) {
             return new Stage();
         }
@@ -246,17 +248,17 @@ public class Repository {
         persistStage(addStage, removeStage);
     }
 
-    public static boolean checkIfStageChanged(Stage addStage, Stage removeStage){
+    private static boolean checkIfStageChanged(Stage addStage, Stage removeStage){
         return !addStage.isEmpty() || !removeStage.isEmpty();
     }
 
-    public static Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage){
+    private static Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage){
         Map<String, String> newPathToBlob = generateNewPathToBlob(addStage, removeStage, preCommit.getPathToBlobID());
         List<String> newParents = generateNewParents(preCommit);
         return new Commit(message, newPathToBlob, newParents);
     }
 
-    public static Map<String, String> generateNewPathToBlob(Stage addStage, Stage removeStage, Map<String, String> pathToBlob){
+    private static Map<String, String> generateNewPathToBlob(Stage addStage, Stage removeStage, Map<String, String> pathToBlob){
         Map<String, String> addIndex = addStage.getIndex();
         Map<String, String> removeIndex = removeStage.getIndex();
         // TODO:这里并没有深拷贝一份pathToBlob，而是直接改
@@ -269,28 +271,28 @@ public class Repository {
         return pathToBlob;
     }
 
-    public static List<String> generateNewParents(Commit preCommit){
+    private static List<String> generateNewParents(Commit preCommit){
         List<String> newParents = new ArrayList<>();
         newParents.add(preCommit.getID());
         return newParents;
     }
 
-    public static void updateHeads(Commit newCommit){
+    private static void updateHeads(Commit newCommit){
         String curBranchName = getCurBranchName();
         File HEADS_FILE = join(HEADS_DIR, curBranchName);
         writeContents(HEADS_FILE, newCommit.getID());
     }
 
-    public static String getCurBranchName(){
+    private static String getCurBranchName(){
         return readContentsAsString(HEAD_FILE);
     }
 
-    public static void clearStage(Stage addStage, Stage removeStage){
+    private static void clearStage(Stage addStage, Stage removeStage){
         addStage.clear();
         removeStage.clear();
     }
 
-    public static void persistStage(Stage addStage, Stage removeStage){
+    private static void persistStage(Stage addStage, Stage removeStage){
         addStage.persist(ADDSTAGE_FILE);
         removeStage.persist(REMOVESTAGE_FILE);
     }
@@ -319,13 +321,57 @@ public class Repository {
         }
     }
 
-    public static String getBlobIDFromCurCommit(Commit curCommit, String filePath){
+    private static String getBlobIDFromCurCommit(Commit curCommit, String filePath){
         return curCommit.getBlobIDOf(filePath);
     }
 
 
     public static void log(){
+        Commit curCommit = loadCurCommit();
+        List<List<String>> logInfo = new ArrayList<>();
+        while(!isInitCommit(curCommit)){
+            logInfo.add(generateCommitLog(curCommit));
+            curCommit = getFirstParentCommit(curCommit);
+        }
+        printLog(logInfo);
+    }
 
+    private static void printLog(List<List<String>> logInfo){
+        for(List<String> commit : logInfo){
+            for(String s : commit){
+                System.out.println(s);
+            }
+        }
+    }
+
+    private static List<String> generateCommitLog(Commit curCommit){
+        return curCommit.getInfo();
+    }
+
+    private static boolean isInitCommit(Commit commit){
+        // TODO:如果允许分离HEAD，则通过父引用为空的判断是否还有效？
+        return commit.getParents().size() == 0;
+    }
+
+    private static Commit getFirstParentCommit(Commit curCommit){
+        // TODO:目前是选择第一个父亲（也即当初合并的base分支）进行回溯，
+        // 后续可能需要添加额外命令参数支持整个树的回溯
+        String firstParentID = curCommit.getParents().get(0);
+        return loadCommitByID(firstParentID);
+    }
+
+    public static void global_log(){
+        List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
+        Commit commit;
+        List<List<String>> logInfo = new ArrayList<>();
+        for (String id : commitList) {
+            try{
+                commit = readObject(join(OBJECTS_DIR, id), Commit.class);
+                logInfo.add(commit.getInfo());
+            }catch (Exception ignored){
+            }
+        }
+        printLog(logInfo);
     }
 
     public static void branch(String branchName){
@@ -356,6 +402,7 @@ public class Repository {
     }
 
     public static void reset(String commitID){
+        // TODO:这里实现的是--hard模式，需要支持--soft和--mixed模式
         Commit dstCommit = loadCommitByID(commitID);
         if(dstCommit == null){
             exit("No commit with that id exists.");
@@ -369,10 +416,14 @@ public class Repository {
         resetBranchHeadTo(commitID);
     }
 
-    public static void checkIfCurBranchHasUntrackedFiles() {
-        // TODO:增加对多层目录的文件检测
+    private static void checkIfCurBranchHasUntrackedFiles() {
         Commit curCommit = loadCurCommit();
+        // TODO:增加对多层目录的文件检测，目前只是在根目录
         List<String> CWDFiles = plainFilenamesIn(CWD);
+    }
+
+    private static void deleteDstCommitUntrackedFiles(){
+
     }
 
     private static void clearStageAndPersist(){
@@ -383,12 +434,8 @@ public class Repository {
         removeStage.clear();
         removeStage.persist(REMOVESTAGE_FILE);
     }
-    
-    public static void deleteDstCommitUntrackedFiles(){
 
-    }
-
-    public static void resetBranchHeadTo(String commitID){
+    private static void resetBranchHeadTo(String commitID){
         String branchName = getCurBranchName();
         setOrCreateBranch(branchName, commitID);
     }

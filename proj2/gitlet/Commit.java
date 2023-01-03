@@ -44,7 +44,7 @@ public class Commit implements Serializable {
         this.message = "initial commit";
         this.timeStamp = dateToTimeStamp(new Date());
         this.parents = new ArrayList<>();
-        this.pathToBlobID = new HashMap<>();
+        this.pathToBlobID = new TreeMap<>();
         this.id = generateSha1ID();
     }
 
@@ -84,10 +84,29 @@ public class Commit implements Serializable {
         return pathToBlobID.containsKey(filePath);
     }
 
+    public List<String> getInfo(){
+        ArrayList<String> info = new ArrayList<>();
+        info.add("===");
+        info.add("commit " + this.id);
+        if(parents.size() > 1){
+            StringBuilder pString = new StringBuilder("");
+            for(String p : parents){
+                pString.append(p, 0, 7).append(" ");
+            }
+            info.add("Merge: " + pString);
+        }
+        info.add("Date: " + this.timeStamp);
+        info.add(this.message);
+        info.add(" ");
+        return info;
+    }
+
+
     public void persist(File COMMIT_DIR) {
         File file = join(COMMIT_DIR, this.getID()); // now, without Tries firstly...
         writeObject(file, this);
     }
+
 
 
 

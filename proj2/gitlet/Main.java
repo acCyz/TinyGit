@@ -43,7 +43,7 @@ public class Main {
                 // TODO: handle the `add [filename]` command
                 checkArgsValid(args, 1);
                 Repository.checkIfInitialized();
-
+                Repository.log();
 
                 break;
             case "global-log":
@@ -66,7 +66,7 @@ public class Main {
                 Repository.checkIfInitialized();
                 Repository.branch(args[1]);
                 break;
-            case "rm_branch":
+            case "rm-branch":
                 checkArgsValid(args, 2);
                 Repository.checkIfInitialized();
                 Repository.rm_branch(args[1]);
