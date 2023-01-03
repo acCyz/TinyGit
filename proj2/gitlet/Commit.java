@@ -63,10 +63,25 @@ public class Commit implements Serializable {
     public String getID() {
         return this.id;
     }
+    public Map<String,String> getPathToBlobID(){
+        return pathToBlobID;
+    }
+    public String getBlobIDOf(String filePath){
+        return pathToBlobID.getOrDefault(filePath, "");
+    }
+    public List<String> getParents(){
+        return parents;
+    }
 
-    public boolean isContainBlob(String filePath, String blobID){
+    /** 检查该commit跟踪的filepath文件对应的版本，是否和传入的版本相同 */
+    public boolean isTrackedSameBlob(String filePath, String blobID){
         String queryBlobID = pathToBlobID.getOrDefault(filePath, "");
         return blobID.equals(queryBlobID);
+    }
+
+    /** 检查该commit是否跟踪了该文件*/
+    public boolean isTrackedFile(String filePath){
+        return pathToBlobID.containsKey(filePath);
     }
 
     public void persist(File COMMIT_DIR) {

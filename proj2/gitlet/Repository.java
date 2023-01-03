@@ -3,6 +3,10 @@ package gitlet;
 
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static gitlet.Utils.*;
 
@@ -86,8 +90,17 @@ public class Repository {
         Commit initCommit = new Commit();
         initCommit.persist(OBJECTS_DIR);
 
-        File HEADS_FILE = join(HEADS_DIR, DEFAULT_BRANCH_NAME);
-        writeContents(HEADS_FILE, initCommit.getID());
+        setOrCreateBranch(DEFAULT_BRANCH_NAME, initCommit.getID());
+    }
+
+    private static void setOrCreateBranch(String branchName, String commitID){
+        File HEADS_FILE = join(HEADS_DIR, branchName);
+        writeContents(HEADS_FILE, commitID);
+    }
+
+    private static void deleteBranch(String branchName) {
+        File removeBranch = join(HEADS_DIR, branchName);
+        restrictedDelete(removeBranch);
     }
 
     private static void initHEAD(){
@@ -124,7 +137,7 @@ public class Repository {
         // 如果该blobid和当前commit跟踪的blobid一模一样（即工作区的该文件相对于最近commit没更改任何内容），
         // 则不添加进addstage以免重复commit该文件
         // 同时如果stage里有它，则将其移出stage
-        if(curCommit.isContainBlob(filePath, blobID)){
+        if(curCommit.isTrackedSameBlob(filePath, blobID)){
             // TODO: 优化代码逻辑
             /*
             if(addStage.isContainBlob(filePath, blobID)) {
@@ -171,6 +184,25 @@ public class Repository {
         return readObject(CURR_COMMIT_FILE, Commit.class);
     }
 
+    private static Commit loadCommitByID(String commitID){
+        if (commitID.length() == 40) {
+            File CURR_COMMIT_FILE = join(OBJECTS_DIR, commitID);
+            if (!CURR_COMMIT_FILE.exists()) {
+                return null;
+            }
+            return readObject(CURR_COMMIT_FILE, Commit.class);
+        } else {
+            List<String> objectID = plainFilenamesIn(OBJECTS_DIR);
+            if(objectID != null) {
+                for (String o : objectID) {
+                    if (commitID.equals(o.substring(0, commitID.length()))) {
+                        return readObject(join(OBJECTS_DIR, o), Commit.class);
+                    }
+                }
+            }
+            return null;
+        }
+    }
     private static String readCurCommitID() {
         String currBranch = readCurBranch();
         File HEADS_FILE = join(HEADS_DIR, currBranch);
@@ -200,13 +232,16 @@ public class Repository {
 
         // 创建新commit对象并继承父亲的数据，并指向父亲
         // 根据stage修改
-        // 保存commit对象
-        Commit newCommit = generateNewCommit(preCommit, addStage, removeStage);
+        // TODO：有必要新建commit对象吗，直接修改父commit对象是否会破坏commit类的设计？
+        Commit newCommit = generateNewCommit(message, preCommit, addStage, removeStage);
 
+        // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
 
-        // 更新brach和head
+        // 更新branch和head
+        updateHeads(newCommit);
 
+        // 清空并持久化暂存区
         clearStage(addStage, removeStage);
         persistStage(addStage, removeStage);
     }
@@ -215,9 +250,39 @@ public class Repository {
         return !addStage.isEmpty() || !removeStage.isEmpty();
     }
 
-    public static Commit generateNewCommit(Commit preCommit, Stage addStage, Stage removeStage){
-        Commit newCommit = new Commit();
-        return newCommit;
+    public static Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage){
+        Map<String, String> newPathToBlob = generateNewPathToBlob(addStage, removeStage, preCommit.getPathToBlobID());
+        List<String> newParents = generateNewParents(preCommit);
+        return new Commit(message, newPathToBlob, newParents);
+    }
+
+    public static Map<String, String> generateNewPathToBlob(Stage addStage, Stage removeStage, Map<String, String> pathToBlob){
+        Map<String, String> addIndex = addStage.getIndex();
+        Map<String, String> removeIndex = removeStage.getIndex();
+        // TODO:这里并没有深拷贝一份pathToBlob，而是直接改
+        for(String filePath : addIndex.keySet()){
+            pathToBlob.put(filePath, addIndex.get(filePath));
+        }
+        for(String filePath : removeIndex.keySet()){
+            pathToBlob.remove(filePath);
+        }
+        return pathToBlob;
+    }
+
+    public static List<String> generateNewParents(Commit preCommit){
+        List<String> newParents = new ArrayList<>();
+        newParents.add(preCommit.getID());
+        return newParents;
+    }
+
+    public static void updateHeads(Commit newCommit){
+        String curBranchName = getCurBranchName();
+        File HEADS_FILE = join(HEADS_DIR, curBranchName);
+        writeContents(HEADS_FILE, newCommit.getID());
+    }
+
+    public static String getCurBranchName(){
+        return readContentsAsString(HEAD_FILE);
     }
 
     public static void clearStage(Stage addStage, Stage removeStage){
@@ -231,8 +296,103 @@ public class Repository {
     }
 
     public static void rm(String filePath) {
+        File file = getFileFromCWD(filePath);
+
+        Stage addStage = loadAddStage();
+        Commit curCommit = loadCurCommit();
+
+        // 如果添加到了暂存区，则从当前暂存区删除
+        if(addStage.isIndexedFile(filePath)){
+            addStage.delete(filePath);
+            addStage.persist(ADDSTAGE_FILE);
+        }else if(curCommit.isTrackedFile(filePath)){
+            // 如果文件被当前commit跟踪，则将其跟踪的filepath:boloID版本移入removestage
+            // 并从CWD删除当前的文件
+            Stage removeStage = loadRemoveStage();
+            String removeBlobID = getBlobIDFromCurCommit(curCommit, filePath);
+            removeStage.add(filePath, removeBlobID);
+            removeStage.persist(REMOVESTAGE_FILE);
+            // 删除失败会返回false
+            restrictedDelete(file);
+        }else{
+            exit("No reason to remove the file.");
+        }
+    }
+
+    public static String getBlobIDFromCurCommit(Commit curCommit, String filePath){
+        return curCommit.getBlobIDOf(filePath);
+    }
+
+
+    public static void log(){
 
     }
+
+    public static void branch(String branchName){
+        checkIfNewBranch(branchName);
+        Commit curCommit = loadCurCommit();
+        setOrCreateBranch(branchName, curCommit.getID());
+    }
+
+    public static void rm_branch(String branchName){
+        checkIfNewBranch(branchName);
+        checkIfIsCurBranch(branchName);
+        deleteBranch(branchName);
+    }
+
+    private static boolean isBranchExisted(String branchName){
+        List<String> allBranches = plainFilenamesIn(HEADS_DIR);
+        return allBranches != null && allBranches.contains(branchName);
+    }
+    private static void checkIfNewBranch(String branchName) {
+        if (isBranchExisted(branchName)) {
+            exit("A branch with that name already exists.");
+        }
+    }
+    private static void checkIfIsCurBranch(String branchName){
+        if(branchName.equals(getCurBranchName())){
+            exit("Cannot remove the current branch.");
+        }
+    }
+
+    public static void reset(String commitID){
+        Commit dstCommit = loadCommitByID(commitID);
+        if(dstCommit == null){
+            exit("No commit with that id exists.");
+        }
+        checkIfCurBranchHasUntrackedFiles();
+
+        deleteDstCommitUntrackedFiles();
+
+        clearStageAndPersist();
+
+        resetBranchHeadTo(commitID);
+    }
+
+    public static void checkIfCurBranchHasUntrackedFiles() {
+        // TODO:增加对多层目录的文件检测
+        Commit curCommit = loadCurCommit();
+        List<String> CWDFiles = plainFilenamesIn(CWD);
+    }
+
+    private static void clearStageAndPersist(){
+        Stage addStage = loadAddStage();
+        addStage.clear();
+        addStage.persist(ADDSTAGE_FILE);
+        Stage removeStage = loadRemoveStage();
+        removeStage.clear();
+        removeStage.persist(REMOVESTAGE_FILE);
+    }
+    
+    public static void deleteDstCommitUntrackedFiles(){
+
+    }
+
+    public static void resetBranchHeadTo(String commitID){
+        String branchName = getCurBranchName();
+        setOrCreateBranch(branchName, commitID);
+    }
+
 
 
     public static void checkIfInitialized() {

@@ -40,9 +40,11 @@ public class Stage implements Serializable{
         return index.isEmpty();
     }
 
-    public boolean isContainBlob(String filePath, String blobID){
-        String queryBlobID = index.getOrDefault(filePath, "");
-        return blobID.equals(queryBlobID);
+    public Map<String, String> getIndex(){
+        return this.index;
+    }
+    public boolean isIndexedFile(String filePath){
+        return index.containsKey(filePath);
     }
 
     public void persist(File STAGE_FILE) {

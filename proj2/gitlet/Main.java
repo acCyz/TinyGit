@@ -39,6 +39,45 @@ public class Main {
                 Repository.checkIfInitialized();
                 Repository.rm(args[1]);
                 break;
+            case "log":
+                // TODO: handle the `add [filename]` command
+                checkArgsValid(args, 1);
+                Repository.checkIfInitialized();
+
+
+                break;
+            case "global-log":
+                checkArgsValid(args, 1);
+                Repository.checkIfInitialized();
+
+                break;
+            case "find":
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+
+                break;
+            case "status":
+                checkArgsValid(args, 1);
+                Repository.checkIfInitialized();
+
+                break;
+            case "branch":
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+                Repository.branch(args[1]);
+                break;
+            case "rm_branch":
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+                Repository.rm_branch(args[1]);
+                break;
+            case "reset":
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+                Repository.reset(args[1]);
+
+                break;
+
         }
     }
 
