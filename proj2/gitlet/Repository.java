@@ -476,6 +476,7 @@ public class Repository {
      * 2. Staged for addition, but with different contents than in the working directory; or
      * 3. Staged for addition, but deleted in the working directory; or
      * 4. Not staged for removal, but tracked in the current commit and deleted from the working directory.
+     * TODO:将判断转为调用commit和stage对象的isTracked方法和inIndexed方法
      *  */
     public static List<String> listUnStagedModifications(Map<String, String> CWDFilePathToBlobID,
                                                          Map<String, String> commitFilePathToBlobID ,
@@ -486,11 +487,12 @@ public class Repository {
         for(String trackedFilePath : commitFilePathToBlobID.keySet()){
             String trackedBlobID = commitFilePathToBlobID.get(trackedFilePath);
             String CWDBlobID = CWDFilePathToBlobID.get(trackedFilePath);
+            String addStageBlobID = addStageIndex.get(trackedFilePath);
             String rmStageBlobID = removeStageIndex.get(trackedFilePath);
 
             String trackedFileName = trackedFilePath.substring(trackedFilePath.lastIndexOf(File.separator)+1);
             // 1.
-            if(CWDBlobID != null && !CWDBlobID.equals(trackedBlobID) && rmStageBlobID == null){
+            if(CWDBlobID != null && !CWDBlobID.equals(trackedBlobID) && addStageBlobID == null){
                 info.add(trackedFileName + " (modified)");
             }
             // 4.
@@ -519,6 +521,7 @@ public class Repository {
      *  present in the working directory but neither staged for addition nor tracked.
      *  This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.
      *  Ignore any subdirectories that may have been introduced, since Gitlet does not deal with them.
+     *  TODO:将判断转为调用commit和stage对象的isTracked方法和inIndexed方法
      */
     private static List<String> listUntracked(Map<String, String> CWDFilePathToBlobID,
                                               Map<String, String> commitFilePathToBlobID ,
@@ -566,7 +569,7 @@ public class Repository {
 
     // checkout overload1
     public static void checkout(String fileName){
-
+        
     }
 
     // checkout overload2
