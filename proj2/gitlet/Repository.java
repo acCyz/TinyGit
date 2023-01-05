@@ -460,11 +460,12 @@ public class Repository {
 
     private static Map<String, String> getCWDFilePathToBlobID(){
         Map<String, String> CWDFilePathToBlobID = new TreeMap<>();
-        List<String> CWDFiles = plainFilenamesIn(CWD);
-        if(CWDFiles != null) {
-            for (String filepath : CWDFiles) {
-                Blob cur = new Blob(join(CWD, filepath));
-                CWDFilePathToBlobID.put(filepath, cur.getID());
+        List<String> CWDFilenames = plainFilenamesIn(CWD);
+        if(CWDFilenames != null) {
+            for (String filename : CWDFilenames) {
+                File file = join(CWD, filename);
+                Blob cur = new Blob(file);
+                CWDFilePathToBlobID.put(file.getPath(), cur.getID());
             }
         }
         return CWDFilePathToBlobID;
@@ -522,8 +523,7 @@ public class Repository {
         List<String> info = new ArrayList<>();
 
         for(String CWDFile : CWDFileToBlobID.keySet()){
-            if(!addStageIndex.containsKey(CWDFile)
-                    || !commitFileToBlobID.containsKey(CWDFile)
+            if(!addStageIndex.containsKey(CWDFile) && !commitFileToBlobID.containsKey(CWDFile)
                     || removeStageIndex.containsKey(CWDFile)){
                 info.add(CWDFile);
             }
