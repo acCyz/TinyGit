@@ -49,8 +49,14 @@ public class Repository {
     public static final File REMOVESTAGE_FILE = join(GITLET_DIR, "remove_stage");
     public static final File HEAD_FILE = join(GITLET_DIR, "HEAD");
 
-    public static void print(){
-        System.out.print(CWD);
+    /** TODO:维护curCommit、stage等变量，在Repository类初始化时，自动加载
+     * 从而可以方便的进行操作、清空和持久化
+     */
+
+    public static void checkIfInitialized() {
+        if (!GITLET_DIR.isDirectory()) {
+            exit("Not in an initialized Gitlet directory.");
+        }
     }
 
     /** Command init 初始化仓库 */
@@ -118,10 +124,10 @@ public class Repository {
         addBlob(file, blob);
     }
 
-    private static File getFileFromCWD(String filePath) {
-        return Paths.get(filePath).isAbsolute()   // path may out of CWD
-                ? new File(filePath)
-                : join(CWD, filePath);
+    private static File getFileFromCWD(String fileName) {
+        return Paths.get(fileName).isAbsolute()   // path may out of CWD
+                ? new File(fileName)
+                : join(CWD, fileName);
     }
 
     public static void addBlob(File file, Blob blob){
@@ -183,11 +189,11 @@ public class Repository {
 
     private static Commit loadCommitByID(String commitID){
         if (commitID.length() == 40) {
-            File CURR_COMMIT_FILE = join(OBJECTS_DIR, commitID);
-            if (!CURR_COMMIT_FILE.exists()) {
+            File CUR_COMMIT_FILE = join(OBJECTS_DIR, commitID);
+            if (!CUR_COMMIT_FILE.exists()) {
                 return null;
             }
-            return readObject(CURR_COMMIT_FILE, Commit.class);
+            return readObject(CUR_COMMIT_FILE, Commit.class);
         } else {
             List<String> objectID = plainFilenamesIn(OBJECTS_DIR);
             if(objectID != null) {
@@ -200,6 +206,28 @@ public class Repository {
             return null;
         }
     }
+
+    private static Blob loadBlobByID(String blobID) {
+        if (blobID.length() == 40) {
+            File CUR_BLOB_FILE = join(OBJECTS_DIR, blobID);
+            if (!CUR_BLOB_FILE.exists()) {
+                return null;
+            }
+            return readObject(CUR_BLOB_FILE, Blob.class);
+        } else {
+            List<String> objectID = plainFilenamesIn(OBJECTS_DIR);
+            if (objectID != null) {
+                for (String o : objectID) {
+                    if (blobID.equals(o.substring(0, blobID.length()))) {
+                        return readObject(join(OBJECTS_DIR, o), Blob.class);
+                    }
+                }
+            }
+            return null;
+        }
+    }
+
+
     private static String readCurCommitID() {
         String currBranch = readCurBranch();
         File HEADS_FILE = join(HEADS_DIR, currBranch);
@@ -540,15 +568,79 @@ public class Repository {
         return info;
     }
 
+    // checkout overload1
+    public static void checkout(String fileName){
+        String curCommitID = readCurCommitID();
+        checkout(curCommitID, fileName);
+    }
+
+    // checkout overload2
+    public static void checkout(String commitID, String fileName){
+        Commit commit = loadCommitByID(commitID);
+        if(commit == null) {
+            exit("No commit with that id exists.");
+        }else{
+            File file = getFileFromCWD(fileName);
+            checkIfCommitTrackedFile(commit, file);
+
+            String blobID = commit.getBlobIDOf(file.getPath());
+            Blob blob = loadBlobByID(blobID);
+
+            // 这里会覆盖写吗?
+            writeContents(file, blob.getContent());
+
+            // unIndexed for stage
+            Stage addStage = loadAddStage();
+            Stage removeStage = loadRemoveStage();
+            addStage.delete(file.getPath());
+            removeStage.delete(file.getPath());
+            persistStage(addStage, removeStage);
+        }
+    }
+
+    public static void checkIfCommitTrackedFile(Commit commit, File file){
+        if (!commit.isTrackedFile(file.getPath())){
+            exit("File does not exist in that commit.");
+        }
+    }
+
+    // checkout 3
+    public static void checkoutBranch(String branchName){
+        checkIfBranchExisted(branchName, false);
+        checkIfIsCurBranch(branchName, "No need to checkout the current branch.");
+        checkIfCurBranchHasUntrackedFiles();
+
+        // 切换分支
+        setOrCreateBranch(branchName);
+
+        // 覆盖分支的所有文件
+        // 更新HEAD指向(当前commit)
+        reset();
+    }
+
+    private static void checkIfCurBranchHasUntrackedFiles() {
+        Commit curCommit = loadCurCommit();
+        // TODO:增加对多层目录的文件检测，目前只是在根目录
+        // TODO:目前gitlet的实现是不比较stage，只考虑commmit是否tracked，并且也不比较tracked的blobID
+        //  真正的git如果发现有stage没有commit会拒绝
+        Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
+        for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
+            if(!curCommit.isTrackedFile(CWDFilePath)){
+                exit("There is an untracked file in the way; delete it, or add and commit it first.");
+            }
+        }
+    }
+
+
     public static void branch(String branchName){
-        checkIfNewBranch(branchName);
+        checkIfBranchExisted(branchName, true);
         Commit curCommit = loadCurCommit();
         setOrCreateBranch(branchName, curCommit.getID());
     }
 
     public static void rm_branch(String branchName){
-        checkIfNewBranch(branchName);
-        checkIfIsCurBranch(branchName);
+        checkIfBranchExisted(branchName, false);
+        checkIfIsCurBranch(branchName, "Cannot remove the current branch.");
         deleteBranch(branchName);
     }
 
@@ -556,29 +648,17 @@ public class Repository {
         List<String> allBranches = plainFilenamesIn(HEADS_DIR);
         return allBranches != null && allBranches.contains(branchName);
     }
-    private static void checkIfNewBranch(String branchName) {
-        if (isBranchExisted(branchName)) {
+    private static void checkIfBranchExisted(String branchName, boolean createNew) {
+        if (createNew && isBranchExisted(branchName)) {
             exit("A branch with that name already exists.");
+        }else if(!createNew && !isBranchExisted(branchName)){
+            exit("No such branch exists.");
         }
     }
-    private static void checkIfIsCurBranch(String branchName){
+    private static void checkIfIsCurBranch(String branchName, String errMessage){
         if(branchName.equals(getCurBranchName())){
-            exit("Cannot remove the current branch.");
+            exit(errMessage);
         }
-    }
-
-    // checkout overload1
-    public static void checkout(String fileName){
-        
-    }
-
-    // checkout overload2
-    public static void checkout(String commitID, String fileName){
-
-    }
-    // checkout 3
-    public static void checkoutBranch(String fileName){
-
     }
 
     public static void reset(String commitID){
@@ -593,13 +673,8 @@ public class Repository {
 
         clearStageAndPersist();
 
+        // 更新HEAD指向(当前commit)
         resetBranchHeadTo(commitID);
-    }
-
-    private static void checkIfCurBranchHasUntrackedFiles() {
-        Commit curCommit = loadCurCommit();
-        // TODO:增加对多层目录的文件检测，目前只是在根目录
-        List<String> CWDFiles = plainFilenamesIn(CWD);
     }
 
     private static void deleteDstCommitUntrackedFiles(){
@@ -620,12 +695,5 @@ public class Repository {
         setOrCreateBranch(branchName, commitID);
     }
 
-
-
-    public static void checkIfInitialized() {
-        if (!GITLET_DIR.isDirectory()) {
-            exit("Not in an initialized Gitlet directory.");
-        }
-    }
 
 }

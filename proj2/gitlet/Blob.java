@@ -27,6 +27,9 @@ public class Blob implements Serializable{
     public String getID(){
         return this.id;
     }
+    public byte[] getContent(){
+        return this.content;
+    }
 
     /*
     public String getFilePath() {
