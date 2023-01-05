@@ -9,7 +9,8 @@ import static gitlet.Utils.writeObject;
 
 public class Stage implements Serializable{
     /** filepath : blobID */
-    private Map<String, String> index;
+    // TODO: 合并addstage和removestage
+    private final Map<String, String> index;
 
     public Stage(){
         index = new TreeMap<>();
@@ -43,6 +44,8 @@ public class Stage implements Serializable{
     public Map<String, String> getIndex(){
         return this.index;
     }
+
+
     public boolean isIndexedFile(String filePath){
         return index.containsKey(filePath);
     }

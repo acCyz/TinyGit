@@ -1,15 +1,10 @@
 package gitlet;
 
 
-import jdk.nashorn.internal.runtime.regexp.joni.ast.StringNode;
-
+import javax.print.DocFlavor;
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import java.util.*;
 import static gitlet.Utils.*;
 
 // TODO: any imports you need here
@@ -328,24 +323,29 @@ public class Repository {
 
     public static void log(){
         Commit curCommit = loadCurCommit();
-        List<List<String>> logInfo = new ArrayList<>();
+        List<String> logInfo = new ArrayList<>();
         while(!isInitCommit(curCommit)){
-            logInfo.add(generateCommitLog(curCommit));
+            logInfo.addAll(generateCommitInfo(curCommit));
             curCommit = getFirstParentCommit(curCommit);
         }
+        logInfo.addAll(generateCommitInfo(curCommit));
         printLog(logInfo);
     }
 
-    private static void printLog(List<List<String>> logInfo){
-        for(List<String> commit : logInfo){
-            for(String s : commit){
-                System.out.println(s);
-            }
+    private static void printLog(List<String> logInfo){
+        for(String s : logInfo){
+            System.out.println(s);
         }
     }
 
-    private static List<String> generateCommitLog(Commit curCommit){
-        return curCommit.getInfo();
+    private static List<String> wrapInfo(String topBanner, List<String> info){
+        info.add(0, topBanner);
+        info.add(" ");
+        return info;
+    }
+
+    private static List<String> generateCommitInfo(Commit curCommit){
+        return wrapInfo("===", curCommit.getInfo());
     }
 
     private static boolean isInitCommit(Commit commit){
@@ -362,16 +362,174 @@ public class Repository {
 
     public static void global_log(){
         List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
-        Commit commit;
-        List<List<String>> logInfo = new ArrayList<>();
+        if(commitList == null) return;
+
+        List<String> logInfo = new ArrayList<>();
         for (String id : commitList) {
             try{
-                commit = readObject(join(OBJECTS_DIR, id), Commit.class);
-                logInfo.add(commit.getInfo());
+                Commit commit = readObject(join(OBJECTS_DIR, id), Commit.class);
+                logInfo.addAll(generateCommitInfo(commit));
             }catch (Exception ignored){
             }
         }
         printLog(logInfo);
+    }
+
+    public static void find(String message){
+        List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
+        if(commitList == null) return;
+        List<String> logInfo = new ArrayList<>();
+        for (String id : commitList) {
+            try{
+                Commit commit = readObject(join(OBJECTS_DIR, id), Commit.class);
+                if(commit.getMessage().contains(message)){
+                    logInfo.add(commit.getID());
+                }
+            }catch (Exception ignored){
+            }
+        }
+
+        if(logInfo.size() == 0){
+            exit("Found no commit with that message.");
+        }else{
+            printLog(logInfo);
+        }
+    }
+
+    public static void status(){
+        List<String> logInfo = new ArrayList<>();
+        logInfo.addAll(listBranches());
+        logInfo.addAll(listStages());
+        logInfo.addAll(listUnStagedModificationsAndUntracked());
+        printLog(logInfo);
+    }
+
+    private static List<String> listBranches(){
+        List<String> info = new ArrayList<>();
+        String curBranch = getCurBranchName();
+        info.add("*" + curBranch);
+        List<String> branchList = plainFilenamesIn(HEADS_DIR);
+        if(branchList != null){
+            for(String branch : branchList){
+                if(!branch.equals(curBranch)){
+                    info.add(branch);
+                }
+            }
+        }
+        wrapInfo("=== Branches ===", info);
+        return info;
+    }
+
+    private static List<String> listStages(){
+        List<String> addInfo = new ArrayList<>();
+        Stage addStage = loadAddStage();
+        if(!addStage.isEmpty()){
+            addInfo.addAll(addStage.getIndex().keySet());
+        }
+        wrapInfo("=== Staged Files ===", addInfo);
+
+        List<String> rmInfo = new ArrayList<>();
+        Stage removeStage = loadRemoveStage();
+        if(!removeStage.isEmpty()){
+            rmInfo.addAll(removeStage.getIndex().keySet());
+        }
+        wrapInfo("=== Removed Files ===", rmInfo);
+
+        addInfo.addAll(rmInfo);
+
+        return addInfo;
+    }
+
+    private static List<String> listUnStagedModificationsAndUntracked(){
+        Map<String, String> CWDFileToBlobID = getCWDFilePathToBlobID();
+        Map<String, String> commitFileToBlobID = loadCurCommit().getPathToBlobID();
+        Map<String, String> addStageIndex = loadAddStage().getIndex();
+        Map<String, String> removeStageIndex = loadRemoveStage().getIndex();
+
+        List<String> info1 = listUnStagedModifications(CWDFileToBlobID,
+                                                      commitFileToBlobID,
+                                                      addStageIndex,
+                                                      removeStageIndex);
+        List<String> info2 = listUntracked(CWDFileToBlobID,
+                                            commitFileToBlobID,
+                                            addStageIndex,
+                                            removeStageIndex);
+        info1.addAll(info2);
+        return info1;
+    }
+
+    private static Map<String, String> getCWDFilePathToBlobID(){
+        Map<String, String> CWDFilePathToBlobID = new TreeMap<>();
+        List<String> CWDFiles = plainFilenamesIn(CWD);
+        if(CWDFiles != null) {
+            for (String filepath : CWDFiles) {
+                Blob cur = new Blob(join(CWD, filepath));
+                CWDFilePathToBlobID.put(filepath, cur.getID());
+            }
+        }
+        return CWDFilePathToBlobID;
+    }
+
+    /** A file in the working directory is “modified but not staged” if it is
+     * 1. Tracked in the current commit, changed in the working directory, but not staged; or
+     * 2. Staged for addition, but with different contents than in the working directory; or
+     * 3. Staged for addition, but deleted in the working directory; or
+     * 4. Not staged for removal, but tracked in the current commit and deleted from the working directory.
+     *  */
+    public static List<String> listUnStagedModifications(Map<String, String> CWDFileToBlobID,
+                                                         Map<String, String> commitFileToBlobID ,
+                                                         Map<String, String> addStageIndex ,
+                                                         Map<String, String> removeStageIndex ){
+        List<String> info = new ArrayList<>();
+
+        for(String trackedFile : commitFileToBlobID.keySet()){
+            String trackedBlobID = commitFileToBlobID.get(trackedFile);
+            String CWDBlobID = CWDFileToBlobID.get(trackedFile);
+            String rmStageBlobID = removeStageIndex.get(trackedFile);
+            // 1.
+            if(CWDBlobID != null && !CWDBlobID.equals(trackedBlobID) && rmStageBlobID == null){
+                info.add(trackedFile + " (modified)");
+            }
+            // 4.
+            if(rmStageBlobID == null && CWDBlobID == null ){
+                info.add(trackedFile + " (deleted)");
+            }
+        }
+
+        for(String addStagedFile : addStageIndex.keySet()){
+            String addStagedBlobID = addStageIndex.get(addStagedFile);
+            String CWDBlobID = CWDFileToBlobID.get(addStagedFile);
+            // 3. 2.
+            if(CWDBlobID == null ){
+                info.add(addStagedFile + " (deleted)");
+            }else if(!addStagedBlobID.equals(CWDBlobID)){
+                info.add(addStagedFile + " (modified)");
+            }
+        }
+        wrapInfo("=== Modifications Not Staged For Commit ===", info);
+        return info;
+    }
+
+    /** The final category (“Untracked Files”) is for files
+     *  present in the working directory but neither staged for addition nor tracked.
+     *  This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.
+     *  Ignore any subdirectories that may have been introduced, since Gitlet does not deal with them.
+     */
+    private static List<String> listUntracked(Map<String, String> CWDFileToBlobID,
+                                              Map<String, String> commitFileToBlobID ,
+                                              Map<String, String> addStageIndex ,
+                                              Map<String, String> removeStageIndex ){
+        List<String> info = new ArrayList<>();
+
+        for(String CWDFile : CWDFileToBlobID.keySet()){
+            if(!addStageIndex.containsKey(CWDFile)
+                    || !commitFileToBlobID.containsKey(CWDFile)
+                    || removeStageIndex.containsKey(CWDFile)){
+                info.add(CWDFile);
+            }
+        }
+        wrapInfo("=== Untracked Files ===", info);
+        return info;
     }
 
     public static void branch(String branchName){
@@ -401,8 +559,22 @@ public class Repository {
         }
     }
 
+    // checkout overload1
+    public static void checkout(String fileName){
+
+    }
+
+    // checkout overload2
+    public static void checkout(String commitID, String fileName){
+
+    }
+    // checkout 3
+    public static void checkoutBranch(String fileName){
+
+    }
+
     public static void reset(String commitID){
-        // TODO:这里实现的是--hard模式，需要支持--soft和--mixed模式
+        // TODO:这里实现的是--hard模式，后续可以支持--soft和--mixed模式
         Commit dstCommit = loadCommitByID(commitID);
         if(dstCommit == null){
             exit("No commit with that id exists.");

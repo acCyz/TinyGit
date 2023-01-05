@@ -63,6 +63,7 @@ public class Commit implements Serializable {
     public String getID() {
         return this.id;
     }
+    public String getMessage(){return this.message;}
     public Map<String,String> getPathToBlobID(){
         return pathToBlobID;
     }
@@ -86,7 +87,7 @@ public class Commit implements Serializable {
 
     public List<String> getInfo(){
         ArrayList<String> info = new ArrayList<>();
-        info.add("===");
+        //info.add("===");  // had been wrapped in outside
         info.add("commit " + this.id);
         if(parents.size() > 1){
             StringBuilder pString = new StringBuilder("");
@@ -97,12 +98,13 @@ public class Commit implements Serializable {
         }
         info.add("Date: " + this.timeStamp);
         info.add(this.message);
-        info.add(" ");
+        //info.add(" ");
         return info;
     }
 
 
     public void persist(File COMMIT_DIR) {
+        // TODO:真正的git是将id的前2位作为子目录名，后38位作为2位目录下的文件名
         File file = join(COMMIT_DIR, this.getID()); // now, without Tries firstly...
         writeObject(file, this);
     }
