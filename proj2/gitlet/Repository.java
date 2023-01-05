@@ -107,8 +107,8 @@ public class Repository {
     /** command add[filename]
      * TODO: support multi files
      * */
-    public static void add(String filePath) {
-        File file = getFileFromCWD(filePath);
+    public static void add(String fileName) {
+        File file = getFileFromCWD(fileName);
         if (!file.exists()) {
             exit("File does not exist.");
         }
@@ -292,9 +292,9 @@ public class Repository {
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
-    public static void rm(String filePath) {
-        File file = getFileFromCWD(filePath);
-
+    public static void rm(String fileName) {
+        File file = getFileFromCWD(fileName);
+        String filePath = file.getPath();
         Stage addStage = loadAddStage();
         Commit curCommit = loadCurCommit();
 
@@ -424,14 +424,14 @@ public class Repository {
         List<String> addInfo = new ArrayList<>();
         Stage addStage = loadAddStage();
         if(!addStage.isEmpty()){
-            addInfo.addAll(addStage.getIndex().keySet());
+            addInfo.addAll(addStage.getIndexedFileNames());
         }
         wrapInfo("=== Staged Files ===", addInfo);
 
         List<String> rmInfo = new ArrayList<>();
         Stage removeStage = loadRemoveStage();
         if(!removeStage.isEmpty()){
-            rmInfo.addAll(removeStage.getIndex().keySet());
+            rmInfo.addAll(removeStage.getIndexedFileNames());
         }
         wrapInfo("=== Removed Files ===", rmInfo);
 
@@ -441,17 +441,17 @@ public class Repository {
     }
 
     private static List<String> listUnStagedModificationsAndUntracked(){
-        Map<String, String> CWDFileToBlobID = getCWDFilePathToBlobID();
-        Map<String, String> commitFileToBlobID = loadCurCommit().getPathToBlobID();
+        Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
+        Map<String, String> commitFilePathToBlobID = loadCurCommit().getPathToBlobID();
         Map<String, String> addStageIndex = loadAddStage().getIndex();
         Map<String, String> removeStageIndex = loadRemoveStage().getIndex();
 
-        List<String> info1 = listUnStagedModifications(CWDFileToBlobID,
-                                                      commitFileToBlobID,
+        List<String> info1 = listUnStagedModifications(CWDFilePathToBlobID,
+                                                      commitFilePathToBlobID,
                                                       addStageIndex,
                                                       removeStageIndex);
-        List<String> info2 = listUntracked(CWDFileToBlobID,
-                                            commitFileToBlobID,
+        List<String> info2 = listUntracked(CWDFilePathToBlobID,
+                                            commitFilePathToBlobID,
                                             addStageIndex,
                                             removeStageIndex);
         info1.addAll(info2);
@@ -477,34 +477,38 @@ public class Repository {
      * 3. Staged for addition, but deleted in the working directory; or
      * 4. Not staged for removal, but tracked in the current commit and deleted from the working directory.
      *  */
-    public static List<String> listUnStagedModifications(Map<String, String> CWDFileToBlobID,
-                                                         Map<String, String> commitFileToBlobID ,
+    public static List<String> listUnStagedModifications(Map<String, String> CWDFilePathToBlobID,
+                                                         Map<String, String> commitFilePathToBlobID ,
                                                          Map<String, String> addStageIndex ,
                                                          Map<String, String> removeStageIndex ){
         List<String> info = new ArrayList<>();
 
-        for(String trackedFile : commitFileToBlobID.keySet()){
-            String trackedBlobID = commitFileToBlobID.get(trackedFile);
-            String CWDBlobID = CWDFileToBlobID.get(trackedFile);
-            String rmStageBlobID = removeStageIndex.get(trackedFile);
+        for(String trackedFilePath : commitFilePathToBlobID.keySet()){
+            String trackedBlobID = commitFilePathToBlobID.get(trackedFilePath);
+            String CWDBlobID = CWDFilePathToBlobID.get(trackedFilePath);
+            String rmStageBlobID = removeStageIndex.get(trackedFilePath);
+
+            String trackedFileName = trackedFilePath.substring(trackedFilePath.lastIndexOf(File.separator)+1);
             // 1.
             if(CWDBlobID != null && !CWDBlobID.equals(trackedBlobID) && rmStageBlobID == null){
-                info.add(trackedFile + " (modified)");
+                info.add(trackedFileName + " (modified)");
             }
             // 4.
             if(rmStageBlobID == null && CWDBlobID == null ){
-                info.add(trackedFile + " (deleted)");
+                info.add(trackedFileName + " (deleted)");
             }
         }
 
-        for(String addStagedFile : addStageIndex.keySet()){
-            String addStagedBlobID = addStageIndex.get(addStagedFile);
-            String CWDBlobID = CWDFileToBlobID.get(addStagedFile);
+        for(String addStagedFilePath : addStageIndex.keySet()){
+            String addStagedBlobID = addStageIndex.get(addStagedFilePath);
+            String CWDBlobID = CWDFilePathToBlobID.get(addStagedFilePath);
+
+            String addStagedFileName = addStagedFilePath.substring(addStagedFilePath.lastIndexOf(File.separator)+1);
             // 3. 2.
             if(CWDBlobID == null ){
-                info.add(addStagedFile + " (deleted)");
+                info.add(addStagedFileName + " (deleted)");
             }else if(!addStagedBlobID.equals(CWDBlobID)){
-                info.add(addStagedFile + " (modified)");
+                info.add(addStagedFileName + " (modified)");
             }
         }
         wrapInfo("=== Modifications Not Staged For Commit ===", info);
@@ -516,16 +520,17 @@ public class Repository {
      *  This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.
      *  Ignore any subdirectories that may have been introduced, since Gitlet does not deal with them.
      */
-    private static List<String> listUntracked(Map<String, String> CWDFileToBlobID,
-                                              Map<String, String> commitFileToBlobID ,
+    private static List<String> listUntracked(Map<String, String> CWDFilePathToBlobID,
+                                              Map<String, String> commitFilePathToBlobID ,
                                               Map<String, String> addStageIndex ,
                                               Map<String, String> removeStageIndex ){
         List<String> info = new ArrayList<>();
 
-        for(String CWDFile : CWDFileToBlobID.keySet()){
-            if(!addStageIndex.containsKey(CWDFile) && !commitFileToBlobID.containsKey(CWDFile)
-                    || removeStageIndex.containsKey(CWDFile)){
-                info.add(CWDFile);
+        for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
+            if(!addStageIndex.containsKey(CWDFilePath) && !commitFilePathToBlobID.containsKey(CWDFilePath)
+                    || removeStageIndex.containsKey(CWDFilePath)){
+                String CWDFileName = CWDFilePath.substring(CWDFilePath.lastIndexOf(File.separator)+1);
+                info.add(CWDFileName);
             }
         }
         wrapInfo("=== Untracked Files ===", info);

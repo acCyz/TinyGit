@@ -45,7 +45,13 @@ public class Stage implements Serializable{
         return this.index;
     }
 
-
+    public List<String> getIndexedFileNames(){
+        List<String> indexedFileNames = new ArrayList<>();
+        for(String filePath : index.keySet()){
+            indexedFileNames.add(filePath.substring(filePath.lastIndexOf(File.separator)+1));
+        }
+        return indexedFileNames;
+    }
     public boolean isIndexedFile(String filePath){
         return index.containsKey(filePath);
     }
