@@ -641,11 +641,12 @@ public class Repository {
     private static void overwriteCWDFilesWith(Commit targetCommit){
         Commit curCommit = loadCurCommit();
         Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
-        for(String filePath : targetCommitFilePathToBlobID.keySet()){
-            if(curCommit.isTrackedSameBlob(filePath, curCommit.getBlobIDOf(filePath))) continue;
-            File file = getFileFromCWD(filePath);
-            Blob blob = loadBlobByID(targetCommitFilePathToBlobID.get(filePath));
-            writeContents(file, blob.getContent());
+        for(String targetFilePath : targetCommitFilePathToBlobID.keySet()){
+            String targetBlobID = targetCommit.getBlobIDOf(targetFilePath);
+            if(curCommit.isTrackedSameBlob(targetFilePath, targetBlobID)) continue;
+            File file = getFileFromCWD(targetFilePath);
+            Blob targetBlob = loadBlobByID(targetCommitFilePathToBlobID.get(targetFilePath));
+            writeContents(file, targetBlob.getContent());
         }
     }
 
@@ -702,7 +703,7 @@ public class Repository {
             exit(errMessage);
         }
     }
-    
+
     private static void checkIfIsCurBranch(String branchName, String errMessage){
         if(branchName.equals(getCurBranchName())){
             exit(errMessage);
