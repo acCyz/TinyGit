@@ -610,13 +610,54 @@ public class Repository {
         checkIfIsCurBranch(targetBranchName, "No need to checkout the current branch.");
         checkIfCurBranchHasUntrackedFiles();
 
-        // 切换分支
-        setBranchTo(targetBranchName);
-
         // 将工作区的文件内容覆盖为目标分支的head的所有文件
-        changeCWDToCommit(loadCurCommit());
+        String targetCommitID = readBranchHead(targetBranchName);
+        changeCWDAndClearStageTo(loadCommitByID(targetCommitID));
+
+        // 将当前分支指针指向目标分支
+        setBranchTo(targetBranchName);
     }
 
+    private static void changeCWDAndClearStageTo(Commit targetCommit){
+        // deleted files that commit tracked but targetCommit untracked
+        deleteTargetCommitUntrackedFiles(targetCommit);
+
+        // overwrite files with targetCommit
+        overwriteCWDFilesWith(targetCommit);
+
+        // cleared stage
+        clearStageAndPersist();
+    }
+
+    private static void deleteTargetCommitUntrackedFiles(Commit targetCommit){
+        Commit curCommit = loadCurCommit();
+        Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
+        for(String filePath : curCommitFilePathToBlobID.keySet()){
+            if(!targetCommit.isTrackedFile(filePath)){
+                restrictedDelete(filePath);
+            }
+        }
+    }
+
+    private static void overwriteCWDFilesWith(Commit targetCommit){
+        Commit curCommit = loadCurCommit();
+        Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
+        for(String filePath : targetCommitFilePathToBlobID.keySet()){
+            if(curCommit.isTrackedSameBlob(filePath, curCommit.getBlobIDOf(filePath))) continue;
+            File file = getFileFromCWD(filePath);
+            Blob blob = loadBlobByID(targetCommitFilePathToBlobID.get(filePath));
+            writeContents(file, blob.getContent());
+        }
+    }
+
+    private static void clearStageAndPersist(){
+        Stage addStage = loadAddStage();
+        addStage.clear();
+        addStage.persist(ADDSTAGE_FILE);
+        Stage removeStage = loadRemoveStage();
+        removeStage.clear();
+        removeStage.persist(REMOVESTAGE_FILE);
+    }
 
     private static void checkIfCurBranchHasUntrackedFiles() {
         Commit curCommit = loadCurCommit();
@@ -672,53 +713,14 @@ public class Repository {
             exit("No commit with that id exists.");
         }else{
             checkIfCurBranchHasUntrackedFiles();
-            changeCWDToCommit(targetCommit);
+
+            changeCWDAndClearStageTo(targetCommit);
+
+            // switch head to target
+            setCurBranchHeadTo(targetCommitID);
         }
     }
 
-    public static void changeCWDToCommit(Commit targetCommit){
-        // deleted files that commit tracked but targetCommit untracked
-        deleteTargetCommitUntrackedFiles(targetCommit);
-
-        // overwrite files with targetCommit
-        overwriteCWDFilesWith(targetCommit);
-
-        // cleared stage
-        clearStageAndPersist();
-
-        // switch head to target
-        setCurBranchHeadTo(targetCommit.getID());
-    }
-
-    private static void deleteTargetCommitUntrackedFiles(Commit targetCommit){
-        Commit curCommit = loadCurCommit();
-        Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
-        for(String filePath : curCommitFilePathToBlobID.keySet()){
-            if(!targetCommit.isTrackedFile(filePath)){
-                restrictedDelete(filePath);
-            }
-        }
-    }
-
-    private static void overwriteCWDFilesWith(Commit targetCommit){
-        Commit curCommit = loadCurCommit();
-        Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
-        for(String filePath : targetCommitFilePathToBlobID.keySet()){
-            if(curCommit.isTrackedSameBlob(filePath, curCommit.getBlobIDOf(filePath))) continue;
-            File file = getFileFromCWD(filePath);
-            Blob blob = loadBlobByID(targetCommitFilePathToBlobID.get(filePath));
-            writeContents(file, blob.getContent());
-        }
-    }
-
-    private static void clearStageAndPersist(){
-        Stage addStage = loadAddStage();
-        addStage.clear();
-        addStage.persist(ADDSTAGE_FILE);
-        Stage removeStage = loadRemoveStage();
-        removeStage.clear();
-        removeStage.persist(REMOVESTAGE_FILE);
-    }
 
 
 
