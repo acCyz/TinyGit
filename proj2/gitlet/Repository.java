@@ -674,11 +674,11 @@ public class Repository {
         Stage removeStage = loadRemoveStage();
         for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
             // 1.
-            if(!addStage.isIndexedFile(CWDFilePath) && !curCommit.isTrackedFile(CWDFilePath)
+            if(! addStage.isIndexedFile(CWDFilePath) && !curCommit.isTrackedFile(CWDFilePath)
                     || removeStage.isIndexedFile(CWDFilePath)){
                 String CWDFileBlobID = CWDFilePathToBlobID.get(CWDFilePath);
                 // 2.
-                if(! targetCommit.isTrackedSameBlob(CWDFilePath, CWDFileBlobID)){
+                if(targetCommit.willOverwrite(CWDFilePath, CWDFileBlobID)){
                     exit("There is an untracked file in the way; delete it, or add and commit it first.");
                 }
             }
