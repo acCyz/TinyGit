@@ -488,7 +488,7 @@ public class Repository {
         List<String> CWDFilenames = plainFilenamesIn(CWD);
         if(CWDFilenames != null) {
             for (String filename : CWDFilenames) {
-                File file = join(CWD, filename);
+                File file = getFileFromCWD(filename);
                 Blob cur = new Blob(file);
                 CWDFilePathToBlobID.put(file.getPath(), cur.getID());
             }

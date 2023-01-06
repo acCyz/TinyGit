@@ -101,6 +101,8 @@ public class Main {
                 Repository.checkIfInitialized();
                 Repository.reset(args[1]);
                 break;
+            default:
+                exit("No command with that name exists.");
         }
     }
 
