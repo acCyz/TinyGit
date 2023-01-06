@@ -614,7 +614,7 @@ public class Repository {
         setBranchTo(targetBranchName);
 
         // 将工作区的文件内容覆盖为目标分支的head的所有文件
-        reset(readCurCommitID());
+        changeCWDToCommit(loadCurCommit());
     }
 
 
@@ -624,9 +624,9 @@ public class Repository {
         // TODO:目前gitlet的实现是不比较stage，只考虑commmit是否tracked，并且也不比较tracked的blobID
         //  真正的git如果发现有stage没有commit会拒绝
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
+
         for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
             if(!curCommit.isTrackedFile(CWDFilePath)){
-                //System.out.println(CWDFilePath);
                 exit("There is an untracked file in the way; delete it, or add and commit it first.");
             }
         }
@@ -672,19 +672,22 @@ public class Repository {
             exit("No commit with that id exists.");
         }else{
             checkIfCurBranchHasUntrackedFiles();
-
-            // deleted files that commit tracked but targetCommit untracked
-            deleteTargetCommitUntrackedFiles(targetCommit);
-
-            // overwrite files with targetCommit
-            overwriteCWDFilesWith(targetCommit);
-
-            // cleared stage
-            clearStageAndPersist();
-
-            // switch head to target
-            setCurBranchHeadTo(targetCommitID);
+            changeCWDToCommit(targetCommit);
         }
+    }
+
+    public static void changeCWDToCommit(Commit targetCommit){
+        // deleted files that commit tracked but targetCommit untracked
+        deleteTargetCommitUntrackedFiles(targetCommit);
+
+        // overwrite files with targetCommit
+        overwriteCWDFilesWith(targetCommit);
+
+        // cleared stage
+        clearStageAndPersist();
+
+        // switch head to target
+        setCurBranchHeadTo(targetCommit.getID());
     }
 
     private static void deleteTargetCommitUntrackedFiles(Commit targetCommit){
