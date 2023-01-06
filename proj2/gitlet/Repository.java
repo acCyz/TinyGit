@@ -172,9 +172,9 @@ public class Repository {
     }
 
     private static Commit loadCurCommit() {
-        String currCommitID = readCurCommitID();
-        File CURR_COMMIT_FILE = join(OBJECTS_DIR, currCommitID);
-        return readObject(CURR_COMMIT_FILE, Commit.class);
+        String curCommitID = readCurCommitID();
+        File CUR_COMMIT_FILE = join(OBJECTS_DIR, curCommitID);
+        return readObject(CUR_COMMIT_FILE, Commit.class);
     }
 
     private static Commit loadCommitByID(String commitID){
@@ -605,7 +605,7 @@ public class Repository {
 
     // checkout 3
     public static void checkoutBranch(String targetBranchName){
-        checkIfBranchExisted(targetBranchName, false);
+        checkIfBranchNotExisted(targetBranchName, "No such branch exists.");
         checkIfIsCurBranch(targetBranchName, "No need to checkout the current branch.");
         checkIfCurBranchHasUntrackedFiles();
 
@@ -619,7 +619,7 @@ public class Repository {
 
     private static void changeCWDAndClearStageTo(Commit targetCommit){
         // deleted files that commit tracked but targetCommit untracked
-        deleteTargetCommitUntrackedFiles(targetCommit);
+        deleteTargetCommitUntrackedCWDFiles(targetCommit);
 
         // overwrite files with targetCommit
         overwriteCWDFilesWith(targetCommit);
@@ -628,7 +628,7 @@ public class Repository {
         clearStageAndPersist();
     }
 
-    private static void deleteTargetCommitUntrackedFiles(Commit targetCommit){
+    private static void deleteTargetCommitUntrackedCWDFiles(Commit targetCommit){
         Commit curCommit = loadCurCommit();
         Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
         for(String filePath : curCommitFilePathToBlobID.keySet()){
@@ -673,13 +673,13 @@ public class Repository {
     }
 
     public static void branch(String branchName){
-        checkIfBranchExisted(branchName, true);
+        checkIfBranchExisted(branchName);
         Commit curCommit = loadCurCommit();
         setOrCreateBranch(branchName, curCommit.getID());
     }
 
     public static void rm_branch(String branchName){
-        checkIfBranchExisted(branchName, false);
+        checkIfBranchNotExisted(branchName, "A branch with that name does not exist.");
         checkIfIsCurBranch(branchName, "Cannot remove the current branch.");
         deleteBranch(branchName);
     }
@@ -688,13 +688,21 @@ public class Repository {
         List<String> allBranches = plainFilenamesIn(HEADS_DIR);
         return allBranches != null && allBranches.contains(branchName);
     }
-    private static void checkIfBranchExisted(String branchName, boolean createNew) {
-        if (createNew && isBranchExisted(branchName)) {
+
+
+    private static void checkIfBranchExisted(String branchName) {
+        if (isBranchExisted(branchName)) {
             exit("A branch with that name already exists.");
-        }else if(!createNew && !isBranchExisted(branchName)){
-            exit("A branch with that name does not exist.");
         }
     }
+    /** 因为测试用例严格规定了不同的错误输出语句，
+     *  因此只能从checkIfBranchExisted拆出来写check并输出 */
+    private static void checkIfBranchNotExisted(String branchName, String errMessage){
+        if(!isBranchExisted(branchName)){
+            exit(errMessage);
+        }
+    }
+    
     private static void checkIfIsCurBranch(String branchName, String errMessage){
         if(branchName.equals(getCurBranchName())){
             exit(errMessage);
