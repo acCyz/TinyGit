@@ -607,11 +607,13 @@ public class Repository {
     public static void checkoutBranch(String targetBranchName){
         checkIfBranchNotExisted(targetBranchName, "No such branch exists.");
         checkIfIsCurBranch(targetBranchName, "No need to checkout the current branch.");
-        checkIfCurBranchHasUntrackedFiles();
 
-        // 将工作区的文件内容覆盖为目标分支的head的所有文件
         String targetCommitID = readBranchHead(targetBranchName);
-        changeCWDAndClearStageTo(loadCommitByID(targetCommitID));
+        Commit targetCommit = loadCommitByID(targetCommitID);
+        checkIfCurBranchHasUntrackedFiles(targetCommit);
+
+        // 将当前分支头的文件内容覆盖为目标分支的head的所有文件
+        changeCWDAndClearStageTo(targetCommit);
 
         // 将当前分支指针指向目标分支
         setBranchTo(targetBranchName);
@@ -659,20 +661,26 @@ public class Repository {
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
-    /** Untracked Files is for files present in the working directory but neither staged for addition nor tracked.
-     *  This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.*/
-    private static void checkIfCurBranchHasUntrackedFiles() {
+    /** 1. Untracked Files is for files present in the working directory but neither staged for addition nor tracked.
+     *  This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.
+     *
+     *  2. If a working file is untracked in the current branch **【and】** would be overwritten by the checkout/reset
+     *  */
+    private static void checkIfCurBranchHasUntrackedFiles(Commit targetCommit) {
         Commit curCommit = loadCurCommit();
         // TODO:增加对多层目录的文件检测，目前只是在根目录
-        // TODO:目前gitlet的实现是stage 或者 commmit是否记录过该文件，但是不比较记录的blobID
-        //  真正的git如果blobID不同也会拒绝
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
         Stage addStage = loadAddStage();
         Stage removeStage = loadRemoveStage();
         for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
+            // 1.
             if(!addStage.isIndexedFile(CWDFilePath) && !curCommit.isTrackedFile(CWDFilePath)
                     || removeStage.isIndexedFile(CWDFilePath)){
-                exit("There is an untracked file in the way; delete it, or add and commit it first.");
+                String CWDFileBlobID = CWDFilePathToBlobID.get(CWDFilePath);
+                // 2.
+                if(! targetCommit.isTrackedSameBlob(CWDFilePath, CWDFileBlobID)){
+                    exit("There is an untracked file in the way; delete it, or add and commit it first.");
+                }
             }
         }
     }
@@ -724,7 +732,7 @@ public class Repository {
         if(targetCommit == null){
             exit("No commit with that id exists.");
         }else{
-            checkIfCurBranchHasUntrackedFiles();
+            checkIfCurBranchHasUntrackedFiles(targetCommit);
 
             changeCWDAndClearStageTo(targetCommit);
 
