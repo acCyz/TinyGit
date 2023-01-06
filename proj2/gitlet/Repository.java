@@ -100,7 +100,7 @@ public class Repository {
 
     private static void deleteBranch(String branchName) {
         File branchHead = join(HEADS_DIR, branchName);
-        restrictedDelete(branchHead);
+        deleteGitLetFile(branchHead);
     }
 
     private static void initHEAD(){
@@ -240,7 +240,6 @@ public class Repository {
     public static void setBranchTo(String targetBranchName){
         writeContents(HEAD_FILE, targetBranchName);
     }
-
 
     public static void commit(String message){
         // 检查message是否非空
@@ -693,7 +692,7 @@ public class Repository {
         if (createNew && isBranchExisted(branchName)) {
             exit("A branch with that name already exists.");
         }else if(!createNew && !isBranchExisted(branchName)){
-            exit("No such branch exists.");
+            exit("A branch with that name does not exist.");
         }
     }
     private static void checkIfIsCurBranch(String branchName, String errMessage){

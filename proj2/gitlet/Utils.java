@@ -71,6 +71,8 @@ class Utils {
      *  FILE also contains a directory named .gitlet. */
     static boolean restrictedDelete(File file) {
         if (!(new File(file.getParentFile(), ".gitlet")).isDirectory()) {
+            System.out.println("try to delete:" + file.getPath());
+            System.out.println("its parentFile is:" + file.getParentFile().getPath());
             throw new IllegalArgumentException("not .gitlet working directory");
         }
         if (!file.isDirectory()) {
@@ -261,7 +263,7 @@ class Utils {
         }
     }
 
-    public static boolean deleteFile(File file) {
+    public static boolean deleteGitLetFile(File file) {
         if (!file.isDirectory()) {
             if (file.exists()) {
                 return file.delete();
@@ -271,6 +273,10 @@ class Utils {
         } else {
             return false;
         }
+    }
+
+    public static boolean deleteGitLetFile(String file) {
+        return deleteGitLetFile(new File(file));
     }
 
     /** Trans curDate to TimeStamp format
