@@ -1,7 +1,5 @@
 package gitlet;
 
-
-import javax.print.DocFlavor;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.*;
@@ -16,9 +14,7 @@ import static gitlet.Utils.*;
  *  @author TODO
  */
 public class Repository {
-    /**
-     * TODO: add instance variables here.
-     *
+    /** TODO: add instance variables here.
      * List all instance variables of the Repository class here with a useful
      * comment above them describing what that variable represents and how that
      * variable is used. We've provided two examples for you.
@@ -96,14 +92,15 @@ public class Repository {
         setOrCreateBranch(DEFAULT_BRANCH_NAME, initCommit.getID());
     }
 
+    /** set branch and its head, if branch not existed, created it */
     private static void setOrCreateBranch(String branchName, String commitID){
         File HEADS_FILE = join(HEADS_DIR, branchName);
         writeContents(HEADS_FILE, commitID);
     }
 
     private static void deleteBranch(String branchName) {
-        File removeBranch = join(HEADS_DIR, branchName);
-        restrictedDelete(removeBranch);
+        File branchHead = join(HEADS_DIR, branchName);
+        restrictedDelete(branchHead);
     }
 
     private static void initHEAD(){
@@ -142,13 +139,6 @@ public class Repository {
         // 同时如果stage里有它，则将其移出stage
         if(curCommit.isTrackedSameBlob(filePath, blobID)){
             // TODO: 优化代码逻辑
-            /*
-            if(addStage.isContainBlob(filePath, blobID)) {
-                addStage.delete(filePath);
-            }
-            if(removeStage.isContainBlob(filePath, blobID)) {
-                removeStage.delete(filePath);
-            }*/
             // return null if filePath not existed
             addStage.delete(filePath);
             removeStage.delete(filePath);
@@ -229,13 +219,26 @@ public class Repository {
 
 
     private static String readCurCommitID() {
-        String currBranch = readCurBranch();
-        File HEADS_FILE = join(HEADS_DIR, currBranch);
+        String curBranch = readCurBranchName();
+        return readBranchHead(curBranch);
+    }
+
+    private static String readCurBranchName() {
+        return readContentsAsString(HEAD_FILE);
+    }
+
+    public static String readBranchHead(String branchName){
+        File HEADS_FILE = join(HEADS_DIR, branchName);
         return readContentsAsString(HEADS_FILE);
     }
 
-    private static String readCurBranch() {
-        return readContentsAsString(HEAD_FILE);
+    private static void setCurBranchHeadTo(String commitID){
+        String curBranchName = getCurBranchName();
+        setOrCreateBranch(curBranchName, commitID);
+    }
+
+    public static void setBranchTo(String targetBranchName){
+        writeContents(HEAD_FILE, targetBranchName);
     }
 
 
@@ -263,8 +266,8 @@ public class Repository {
         // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
 
-        // 更新branch和head
-        updateHeads(newCommit);
+        // 更新当前branch的head为新commit
+        setCurBranchHeadTo(newCommit.getID());
 
         // 清空并持久化暂存区
         clearStage(addStage, removeStage);
@@ -298,12 +301,6 @@ public class Repository {
         List<String> newParents = new ArrayList<>();
         newParents.add(preCommit.getID());
         return newParents;
-    }
-
-    private static void updateHeads(Commit newCommit){
-        String curBranchName = getCurBranchName();
-        File HEADS_FILE = join(HEADS_DIR, curBranchName);
-        writeContents(HEADS_FILE, newCommit.getID());
     }
 
     private static String getCurBranchName(){
@@ -589,12 +586,15 @@ public class Repository {
             // 这里会覆盖写吗?
             writeContents(file, blob.getContent());
 
+            /*
             // unIndexed for stage
             Stage addStage = loadAddStage();
             Stage removeStage = loadRemoveStage();
             addStage.delete(file.getPath());
             removeStage.delete(file.getPath());
             persistStage(addStage, removeStage);
+            *
+             */
         }
     }
 
@@ -605,18 +605,18 @@ public class Repository {
     }
 
     // checkout 3
-    public static void checkoutBranch(String branchName){
-        checkIfBranchExisted(branchName, false);
-        checkIfIsCurBranch(branchName, "No need to checkout the current branch.");
+    public static void checkoutBranch(String targetBranchName){
+        checkIfBranchExisted(targetBranchName, false);
+        checkIfIsCurBranch(targetBranchName, "No need to checkout the current branch.");
         checkIfCurBranchHasUntrackedFiles();
 
         // 切换分支
-        setOrCreateBranch(branchName);
+        setBranchTo(targetBranchName);
 
-        // 覆盖分支的所有文件
-        // 更新HEAD指向(当前commit)
-        reset();
+        // 将工作区的文件内容覆盖为目标分支的head的所有文件
+        reset(readCurCommitID());
     }
+
 
     private static void checkIfCurBranchHasUntrackedFiles() {
         Commit curCommit = loadCurCommit();
@@ -661,24 +661,51 @@ public class Repository {
         }
     }
 
-    public static void reset(String commitID){
+    /** Checks out all the files tracked by the given commit.
+     *  Removes tracked files that are not present in that commit.
+     *  Also moves the current branch’s head to that commit node.
+     */
+    public static void reset(String targetCommitID){
         // TODO:这里实现的是--hard模式，后续可以支持--soft和--mixed模式
-        Commit dstCommit = loadCommitByID(commitID);
-        if(dstCommit == null){
+        Commit targetCommit = loadCommitByID(targetCommitID);
+        if(targetCommit == null){
             exit("No commit with that id exists.");
+        }else{
+            checkIfCurBranchHasUntrackedFiles();
+
+            // deleted files that commit tracked but targetCommit untracked
+            deleteTargetCommitUntrackedFiles(targetCommit);
+
+            // overwrite files with targetCommit
+            overwriteCWDFilesWith(targetCommit);
+
+            // cleared stage
+            clearStageAndPersist();
+
+            // switch head to target
+            setCurBranchHeadTo(targetCommitID);
         }
-        checkIfCurBranchHasUntrackedFiles();
-
-        deleteDstCommitUntrackedFiles();
-
-        clearStageAndPersist();
-
-        // 更新HEAD指向(当前commit)
-        resetBranchHeadTo(commitID);
     }
 
-    private static void deleteDstCommitUntrackedFiles(){
+    private static void deleteTargetCommitUntrackedFiles(Commit targetCommit){
+        Commit curCommit = loadCurCommit();
+        Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
+        for(String filePath : curCommitFilePathToBlobID.keySet()){
+            if(!targetCommit.isTrackedFile(filePath)){
+                restrictedDelete(filePath);
+            }
+        }
+    }
 
+    private static void overwriteCWDFilesWith(Commit targetCommit){
+        Commit curCommit = loadCurCommit();
+        Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
+        for(String filePath : targetCommitFilePathToBlobID.keySet()){
+            if(curCommit.isTrackedSameBlob(filePath, curCommit.getBlobIDOf(filePath))) continue;
+            File file = getFileFromCWD(filePath);
+            Blob blob = loadBlobByID(targetCommitFilePathToBlobID.get(filePath));
+            writeContents(file, blob.getContent());
+        }
     }
 
     private static void clearStageAndPersist(){
@@ -690,10 +717,7 @@ public class Repository {
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
-    private static void resetBranchHeadTo(String commitID){
-        String branchName = getCurBranchName();
-        setOrCreateBranch(branchName, commitID);
-    }
+
 
 
 }

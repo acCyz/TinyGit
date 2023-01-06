@@ -61,6 +61,31 @@ public class Main {
                 Repository.checkIfInitialized();
                 Repository.status();
                 break;
+            case "checkout":
+                Repository.checkIfInitialized();
+                switch (args.length) {
+                    case 2:
+                        /* * checkout [branch name] */
+                        Repository.checkoutBranch(args[1]);
+                        break;
+                    case 3:
+                        if (!args[1].equals("--")) {
+                            exit("Incorrect operands.");
+                        }
+                        /* * checkout -- [file name] */
+                        Repository.checkout(args[2]);
+                        break;
+                    case 4:
+                        if (!args[2].equals("--")) {
+                            exit("Incorrect operands.");
+                        }
+                        /* * checkout [commit id] -- [file name] */
+                        Repository.checkout(args[1], args[3]);
+                        break;
+                    default:
+                        exit("Incorrect operands.");
+                }
+                break;
             case "branch":
                 checkArgsValid(args, 2);
                 Repository.checkIfInitialized();
@@ -75,9 +100,7 @@ public class Main {
                 checkArgsValid(args, 2);
                 Repository.checkIfInitialized();
                 Repository.reset(args[1]);
-
                 break;
-
         }
     }
 
