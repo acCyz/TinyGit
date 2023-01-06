@@ -659,15 +659,19 @@ public class Repository {
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
+    /** Untracked Files is for files present in the working directory but neither staged for addition nor tracked.
+     *  This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.*/
     private static void checkIfCurBranchHasUntrackedFiles() {
         Commit curCommit = loadCurCommit();
         // TODO:增加对多层目录的文件检测，目前只是在根目录
-        // TODO:目前gitlet的实现是不比较stage，只考虑commmit是否tracked，并且也不比较tracked的blobID
-        //  真正的git如果发现有stage没有commit会拒绝
+        // TODO:目前gitlet的实现是stage 或者 commmit是否记录过该文件，但是不比较记录的blobID
+        //  真正的git如果blobID不同也会拒绝
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
-
+        Stage addStage = loadAddStage();
+        Stage removeStage = loadRemoveStage();
         for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
-            if(!curCommit.isTrackedFile(CWDFilePath)){
+            if(!addStage.isIndexedFile(CWDFilePath) && !curCommit.isTrackedFile(CWDFilePath)
+                    || removeStage.isIndexedFile(CWDFilePath)){
                 exit("There is an untracked file in the way; delete it, or add and commit it first.");
             }
         }
