@@ -489,8 +489,8 @@ public class Repository {
         if(CWDFilenames != null) {
             for (String filename : CWDFilenames) {
                 File file = getFileFromCWD(filename);
-                Blob cur = new Blob(file);
-                CWDFilePathToBlobID.put(file.getPath(), cur.getID());
+                Blob curCWDBlob = new Blob(file);
+                CWDFilePathToBlobID.put(file.getPath(), curCWDBlob.getID());
             }
         }
         return CWDFilePathToBlobID;
@@ -626,11 +626,11 @@ public class Repository {
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
         for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
             if(!curCommit.isTrackedFile(CWDFilePath)){
+                //System.out.println(CWDFilePath);
                 exit("There is an untracked file in the way; delete it, or add and commit it first.");
             }
         }
     }
-
 
     public static void branch(String branchName){
         checkIfBranchExisted(branchName, true);

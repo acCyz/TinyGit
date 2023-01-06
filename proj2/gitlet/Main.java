@@ -40,11 +40,9 @@ public class Main {
                 Repository.rm(args[1]);
                 break;
             case "log":
-
                 checkArgsValid(args, 1);
                 Repository.checkIfInitialized();
                 Repository.log();
-
                 break;
             case "global-log":
                 checkArgsValid(args, 1);
