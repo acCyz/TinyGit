@@ -602,7 +602,7 @@ public class Repository {
 
     public static void checkIfCommitTrackedFile(Commit commit, File file){
         if (!commit.isTrackedFile(file.getPath())){
-            exit(file.getPath()+"File does not exist in that commit.");
+            exit("File does not exist in that commit.");
         }
     }
 
@@ -887,7 +887,7 @@ public class Repository {
             String splitVersion = splitMap.get(filepath);
             String headVersion = headMap.get(filepath);
             String otherVersion = otherMap.get(filepath);
-            if(splitVersion != null && !splitVersion.equals(otherVersion) && splitVersion.equals(headVersion)){
+            if(splitVersion != null && otherVersion != null && !splitVersion.equals(otherVersion) && splitVersion.equals(headVersion)){
                 overwriteList.put(filepath, otherVersion);
             }else if(splitVersion == null && headVersion == null && otherVersion != null){
                 writeList.put(filepath, otherVersion);
