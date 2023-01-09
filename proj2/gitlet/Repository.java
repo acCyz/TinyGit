@@ -1,8 +1,12 @@
 package gitlet;
 
+import org.graalvm.compiler.printer.CanonicalStringGraphPrinter;
+
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.*;
+
 import static gitlet.Utils.*;
 
 // TODO: any imports you need here
@@ -251,9 +255,7 @@ public class Repository {
         Stage removeStage = loadRemoveStage();
 
         // 检查暂存区是否非空
-        if(!checkIfStageChanged(addStage, removeStage)){
-            exit("No changes added to the commit.");
-        }
+        checkIfStageChanged(addStage, removeStage);
 
         Commit preCommit = loadCurCommit();
 
@@ -273,8 +275,10 @@ public class Repository {
         persistStage(addStage, removeStage);
     }
 
-    private static boolean checkIfStageChanged(Stage addStage, Stage removeStage){
-        return !addStage.isEmpty() || !removeStage.isEmpty();
+    private static void checkIfStageChanged(Stage addStage, Stage removeStage){
+        if(addStage.isEmpty() && removeStage.isEmpty()){
+            exit("No changes added to the commit.");
+        }
     }
 
     private static Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage){
@@ -374,7 +378,7 @@ public class Repository {
 
     private static boolean isInitCommit(Commit commit){
         // TODO:如果允许分离HEAD，则通过父引用为空的判断是否还有效？
-        return commit.getParents().size() == 0;
+        return commit.isNoParent();
     }
 
     private static Commit getFirstParentCommit(Commit curCommit){
@@ -610,7 +614,7 @@ public class Repository {
 
         String targetCommitID = readBranchHead(targetBranchName);
         Commit targetCommit = loadCommitByID(targetCommitID);
-        checkIfCurBranchHasUntrackedFiles(targetCommit);
+        checkIfHasUntrackedFilesWillOverwriteBy(targetCommit);
 
         // 将当前分支头的文件内容覆盖为目标分支的head的所有文件
         changeCWDAndClearStageTo(targetCommit);
@@ -640,6 +644,7 @@ public class Repository {
         }
     }
 
+    // TODO:用map交集操作来寻找两个commit共同追踪的部分
     private static void overwriteCWDFilesWith(Commit targetCommit){
         Commit curCommit = loadCurCommit();
         Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
@@ -666,7 +671,7 @@ public class Repository {
      *
      *  2. If a working file is untracked in the current branch **【and】** would be overwritten by the checkout/reset
      *  */
-    private static void checkIfCurBranchHasUntrackedFiles(Commit targetCommit) {
+    private static void checkIfHasUntrackedFilesWillOverwriteBy(Commit targetCommit) {
         Commit curCommit = loadCurCommit();
         // TODO:增加对多层目录的文件检测，目前只是在根目录
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
@@ -732,13 +737,257 @@ public class Repository {
         if(targetCommit == null){
             exit("No commit with that id exists.");
         }else{
-            checkIfCurBranchHasUntrackedFiles(targetCommit);
+            checkIfHasUntrackedFilesWillOverwriteBy(targetCommit);
 
             changeCWDAndClearStageTo(targetCommit);
 
             // switch head to target
             setCurBranchHeadTo(targetCommitID);
         }
+    }
+
+    public static void merge(String otherBranchName){
+        checkIfCurBranchHasUnCommitted();
+        checkIfBranchNotExisted(otherBranchName, "A branch with that name does not exist.");
+        checkIfIsCurBranch(otherBranchName, "Cannot merge a branch with itself.");
+
+        Commit headCommit = loadCurCommit();
+        Commit otherCommit = loadCommitByID(readBranchHead(otherBranchName));
+        checkIfHasUntrackedFilesWillOverwriteBy(otherCommit);
+
+        Commit splitCommit = findSplitPoint(headCommit, otherCommit);
+        checkIfSplitIsOneOf(splitCommit, otherCommit, headCommit);
+
+
+        List<String> allFiles = generateAllFiles(splitCommit, headCommit, otherCommit);
+        Map<String, String> owFilePathToBlob = overwriteMergeFiles(allFiles, splitCommit, headCommit, otherCommit);
+        Map<String, String> rmFilePathToBlob = deleteMergeFiles(allFiles, splitCommit, headCommit, otherCommit);
+        Map<String, String> cfFilePathToBlob = mergeConflict(allFiles, splitCommit, headCommit, otherCommit);
+
+        String message = "Merged " + otherBranchName + " into " + readCurBranchName() + ".";
+        Map<String, String> newFilePathToBlob = mergeNewPathToBlob(headCommit.getPathToBlobID(), owFilePathToBlob, rmFilePathToBlob, cfFilePathToBlob);
+        List<String> newParents = new ArrayList<String>(){{
+            add(headCommit.getID());
+            add(otherCommit.getID());
+        }};
+
+        Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
+        // 保存commit对象
+        newCommit.persist(OBJECTS_DIR);
+
+        // 更新当前branch的head为新commit
+        setCurBranchHeadTo(newCommit.getID());
+
+        if(!cfFilePathToBlob.isEmpty()){
+            exit("Encountered a merge conflict.");
+        }
+    }
+
+    private static void checkIfCurBranchHasUnCommitted(){
+        if(!loadAddStage().isEmpty() || !loadRemoveStage().isEmpty()){
+            exit("You have uncommitted changes.");
+        }
+    }
+
+    private static void checkIfSplitIsOneOf(Commit split, Commit other, Commit head){
+        if(split.equals(other)){
+            exit("Given branch is an ancestor of the current branch.");
+        }if(split.equals(head)){
+            // take curBranchHead fast moved to other head
+            setCurBranchHeadTo(other.getID());
+            exit("Current branch fast-forwarded.");
+        }
+    }
+
+    private static Commit findSplitPoint(Commit head, Commit other){
+        Map<Commit, Integer> headAncestors = findAncestors(head);
+        Queue<Commit> queue = new ArrayDeque<>();
+        queue.offer(other);
+        while(!queue.isEmpty()){
+            int size = queue.size();
+            while(size > 0){
+                Commit cur = queue.poll();
+                if(headAncestors.containsKey(cur)){
+                    return cur;
+                }
+                if(!isInitCommit(cur)){
+                    for(String parentID : cur.getParents()){
+                        Commit parent = loadCommitByID(parentID);
+                        queue.offer(parent);
+                    }
+                }
+                size--;
+            }
+        }
+        return new Commit();
+    }
+
+    private static Map<Commit, Integer> findAncestors(Commit commit){
+        Map<Commit, Integer> map = new HashMap<>();
+        Queue<Commit> queue = new ArrayDeque<>();
+        queue.offer(commit);
+        int depth = 1;
+        while(!queue.isEmpty()){
+            int size = queue.size();
+            while(size > 0){
+                Commit cur = queue.poll();
+                // putIfAbsent, if the KEY cur is existed, prevent put multi initCommit
+                map.putIfAbsent(cur, depth);
+                if(!isInitCommit(cur)){
+                    for(String parentID : cur.getParents()){
+                        Commit parent = loadCommitByID(parentID);
+                        queue.offer(parent);
+                    }
+                }
+                size--;
+            }
+            depth ++;
+        }
+        return map;
+    }
+
+    public static Commit mergeIntoNew(Commit split, Commit head, Commit other){
+        return null;
+    }
+
+    private static Map<String, String> mergeNewPathToBlob(Map<String, String> headFilePathToBlob,
+                                                             Map<String, String> owFilePathToBlob,
+                                                             Map<String, String> rmFilePathToBlob,
+                                                             Map<String, String> cfFilePathToBlob){
+        Map<String, String> newFilePathToBlob = new HashMap<>();
+        newFilePathToBlob.putAll(headFilePathToBlob);
+        for(String owFilePath : owFilePathToBlob.keySet()){
+            newFilePathToBlob.put(owFilePath, owFilePathToBlob.get(owFilePath));
+        }
+        for(String rmFilePath : rmFilePathToBlob.keySet()){
+            newFilePathToBlob.remove(rmFilePath);
+        }
+        for(String cfFilePath : cfFilePathToBlob.keySet()){
+            newFilePathToBlob.put(cfFilePath, cfFilePathToBlob.get(cfFilePath));
+        }
+        return newFilePathToBlob;
+    }
+
+
+    /**
+     * 1. modified in other but not head, overwrite it with other
+     * 5. neither in split nor head but in other, write it with other
+     * @param split
+     * @param head
+     * @param other
+     */
+    private static Map<String, String> overwriteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other){
+        Map<String, String> splitMap = split.getPathToBlobID();
+        Map<String, String> headMap = head.getPathToBlobID();
+        Map<String, String> otherMap = other.getPathToBlobID();
+
+        Map<String, String> overwriteList = new HashMap<>();
+        for(String filepath : allFiles){
+            String splitVersion = splitMap.get(filepath);
+            String headVersion = headMap.get(filepath);
+            String otherVersion = otherMap.get(filepath);
+            if((splitVersion != null && !splitVersion.equals(otherVersion) && splitVersion.equals(headVersion))
+                    || (splitVersion == null && headVersion == null && otherVersion != null)){
+                overwriteList.put(filepath, otherVersion);
+            }
+        }
+
+        for(String filePath : overwriteList.keySet()){
+            checkout(other.getID(), filePath);
+        }
+        return overwriteList;
+    }
+
+    /**
+     * 3.2. modified in head and other in different ways, existed conflict
+     * @param allFiles
+     * @param split
+     * @param head
+     * @param other
+     */
+    private static Map<String, String> mergeConflict(List<String> allFiles, Commit split, Commit head, Commit other){
+        Map<String, String> splitMap = split.getPathToBlobID();
+        Map<String, String> headMap = head.getPathToBlobID();
+        Map<String, String> otherMap = other.getPathToBlobID();
+
+        Map<String, String> conflictList = new HashMap<>();
+        for(String filePath : allFiles){
+            String splitVersion = splitMap.get(filePath);
+            String headVersion = headMap.get(filePath);
+            String otherVersion = otherMap.get(filePath);
+            if(headMap.containsKey(filePath) && otherMap.containsKey(filePath)){
+                if(!equal(splitVersion, headVersion) && !equal(splitVersion, otherVersion) && !equal(headVersion, otherVersion)){
+                    Blob nb = generateConflictBlob(headVersion, otherVersion);
+                    nb.persist(OBJECTS_DIR);
+                    File file = getFileFromCWD(filePath);
+                    writeContents(file, nb.getContent());
+
+                    conflictList.put(filePath, nb.getID());
+                }
+            }
+        }
+        return conflictList;
+    }
+
+    private static Blob generateConflictBlob(String blobID1, String blobID2){
+        Blob b1 = loadBlobByID(blobID1);
+        Blob b2 = loadBlobByID(blobID2);
+        String newContent = "<<<<<<< HEAD\n" + readContentsAsString(join(OBJECTS_DIR, b1.getID())) +
+                "\n=======\n" +
+                readContentsAsString(join(OBJECTS_DIR, b2.getID())) +
+                "\n>>>>>>>\n";
+
+        Blob cb = new Blob(newContent.getBytes(StandardCharsets.UTF_8));
+        return cb;
+    }
+
+
+    /**
+     * 6. unmodified in head but not present in other, remove it
+     * @param allFiles
+     * @param split
+     * @param head
+     * @param other
+     */
+    private static Map<String, String> deleteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other) {
+        Map<String, String> splitMap = split.getPathToBlobID();
+        Map<String, String> headMap = head.getPathToBlobID();
+        Map<String, String> otherMap = other.getPathToBlobID();
+
+        Map<String, String> removeList = new HashMap<>();
+        for(String filePath : allFiles){
+            String splitVersion = splitMap.get(filePath);
+            String headVersion = headMap.get(filePath);
+            String otherVersion = otherMap.get(filePath);
+            if(splitVersion != null && splitVersion.equals(headVersion) && otherVersion == null){
+                removeList.put(filePath, headVersion);
+            }
+        }
+        for(String filePath : removeList.keySet()){
+            restrictedDelete(filePath);
+        }
+
+        return removeList;
+    }
+
+    /**
+     * do nothing for
+     * 2. modified in head but not in other, overwrite with head
+     * 3.1. modified in head and other, but still keep same content
+     * 4. neither in split nor other but in head, write it
+     * 7. unmodified in other but not present in head, (remain remove)
+     */
+
+
+
+    private static List<String> generateAllFiles(Commit splitPoint, Commit newCommit, Commit mergeCommit) {
+        List<String> allFiles = new ArrayList<>(splitPoint.getPathToBlobID().keySet());
+        allFiles.addAll(newCommit.getPathToBlobID().keySet());
+        allFiles.addAll(mergeCommit.getPathToBlobID().keySet());
+        Set<String> set = new HashSet<>(allFiles);
+        allFiles.clear();
+        allFiles.addAll(set);
+        return allFiles;
     }
 
 

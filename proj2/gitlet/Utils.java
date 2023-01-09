@@ -287,5 +287,21 @@ class Utils {
         return dateFormat.format(date);
     }
 
+    /**
+     * Check equality of two strings.
+     * @param x string
+     * @param y string
+     * @return
+     */
+    static boolean equal(String x, String y) {
+        if (x == null && y == null) {
+            return true;
+        }
+        if (x != null) {
+            return x.equals(y);
+        }
+        return y.equals(x);
+    }
+
 
 }

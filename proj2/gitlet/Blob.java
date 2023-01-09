@@ -17,6 +17,12 @@ public class Blob implements Serializable{
         this.id = generateSha1ID();
     }
 
+    public Blob(byte[] content){
+        //this.filePath = file.getName();
+        this.content = content;
+        this.id = generateSha1ID();
+    }
+
     private byte[] generateContent(File file) {
         return readContents(file);
     }

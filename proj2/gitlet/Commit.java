@@ -74,20 +74,28 @@ public class Commit implements Serializable {
         return parents;
     }
 
-    /** 检查给定的文件，是否会被当前commit覆盖 */
+    /** 检查给定的文件，是否会被当前commit中的同名文件覆盖 */
     public boolean willOverwrite(String filePath, String blobID){
         return isTrackedFile(filePath) && !isTrackedSameBlob(filePath, blobID);
     }
 
-    /** 检查该commit跟踪的filepath文件对应的版本，是否和给定的版本相同 */
+    /** 检查该commit跟踪的了相同的文件版本 */
     public boolean isTrackedSameBlob(String filePath, String blobID){
-        String queryBlobID = pathToBlobID.getOrDefault(filePath, "");
-        return blobID.equals(queryBlobID);
+        String queryBlobID = pathToBlobID.get(filePath);
+        return isTrackedFile(filePath) && blobID.equals(queryBlobID);
     }
 
     /** 检查该commit是否跟踪了该文件*/
     public boolean isTrackedFile(String filePath){
         return pathToBlobID.containsKey(filePath);
+    }
+
+    public boolean isNoParent(){
+        return this.parents.isEmpty();
+    }
+
+    public boolean equals(Commit other){
+        return this.id.equals(other.getID());
     }
 
     public List<String> getInfo(){
