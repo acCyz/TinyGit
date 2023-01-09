@@ -602,7 +602,7 @@ public class Repository {
 
     public static void checkIfCommitTrackedFile(Commit commit, File file){
         if (!commit.isTrackedFile(file.getPath())){
-            exit("File does not exist in that commit.");
+            exit(file.getPath()+"File does not exist in that commit.");
         }
     }
 
