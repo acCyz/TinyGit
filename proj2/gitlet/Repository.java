@@ -757,7 +757,6 @@ public class Repository {
         Commit splitCommit = findSplitPoint(headCommit, otherCommit);
         checkIfSplitIsOneOf(splitCommit, otherCommit, headCommit);
 
-
         List<String> allFiles = generateAllFiles(splitCommit, headCommit, otherCommit);
         Map<String, String> owFilePathToBlob = overwriteMergeFiles(allFiles, splitCommit, headCommit, otherCommit);
         Map<String, String> rmFilePathToBlob = deleteMergeFiles(allFiles, splitCommit, headCommit, otherCommit);
@@ -791,7 +790,7 @@ public class Repository {
     private static void checkIfSplitIsOneOf(Commit split, Commit other, Commit head){
         if(split.equals(other)){
             exit("Given branch is an ancestor of the current branch.");
-        }if(split.equals(head)){
+        }else if(split.equals(head)){
             // take curBranchHead fast moved to other head
             setCurBranchHeadTo(other.getID());
             exit("Current branch fast-forwarded.");
@@ -799,14 +798,14 @@ public class Repository {
     }
 
     private static Commit findSplitPoint(Commit head, Commit other){
-        Map<Commit, Integer> headAncestors = findAncestors(head);
+        Map<String, Integer> headAncestors = findAncestors(head);
         Queue<Commit> queue = new ArrayDeque<>();
         queue.offer(other);
         while(!queue.isEmpty()){
             int size = queue.size();
             while(size > 0){
                 Commit cur = queue.poll();
-                if(headAncestors.containsKey(cur)){
+                if(headAncestors.containsKey(cur.getID())){
                     return cur;
                 }
                 if(!isInitCommit(cur)){
@@ -821,8 +820,8 @@ public class Repository {
         return new Commit();
     }
 
-    private static Map<Commit, Integer> findAncestors(Commit commit){
-        Map<Commit, Integer> map = new HashMap<>();
+    private static Map<String, Integer> findAncestors(Commit commit){
+        Map<String, Integer> map = new HashMap<>();
         Queue<Commit> queue = new ArrayDeque<>();
         queue.offer(commit);
         int depth = 1;
@@ -831,7 +830,7 @@ public class Repository {
             while(size > 0){
                 Commit cur = queue.poll();
                 // putIfAbsent, if the KEY cur is existed, prevent put multi initCommit
-                map.putIfAbsent(cur, depth);
+                map.putIfAbsent(cur.getID(), depth);
                 if(!isInitCommit(cur)){
                     for(String parentID : cur.getParents()){
                         Commit parent = loadCommitByID(parentID);
@@ -928,12 +927,13 @@ public class Repository {
     }
 
     private static Blob generateConflictBlob(String blobID1, String blobID2){
-        Blob b1 = loadBlobByID(blobID1);
-        Blob b2 = loadBlobByID(blobID2);
-        String newContent = "<<<<<<< HEAD\n" + readContentsAsString(join(OBJECTS_DIR, b1.getID())) +
-                "\n=======\n" +
-                readContentsAsString(join(OBJECTS_DIR, b2.getID())) +
-                "\n>>>>>>>\n";
+        String content1 = blobID1 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID1));
+        String content2 = blobID2 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID2));
+        String newContent = "<<<<<<< HEAD\n" +
+                content1+
+                "=======\n" +
+                content2 +
+                ">>>>>>>\n";
 
         Blob cb = new Blob(newContent.getBytes(StandardCharsets.UTF_8));
         return cb;
