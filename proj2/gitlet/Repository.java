@@ -932,15 +932,15 @@ public class Repository {
         return conflictList;
     }
 
-    private static Blob generateConflictBlob(String blobID1, String blobID2){
-        String content1 = blobID1 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID1)) + "\n";
-        String content2 = blobID2 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID2)) + "\n";
+    private static Blob generateConflictBlob(String headBlobID, String otherBlobID){
+        String headContent = headBlobID == null ? "":readContentsAsString(join(OBJECTS_DIR, headBlobID)) + "\n";
+        String otherContent = otherBlobID == null ? "":readContentsAsString(join(OBJECTS_DIR, otherBlobID)) + "\n";
         String newContent = "<<<<<<< HEAD\n" +
-                content1+
+                headContent+
                 "=======\n" +
-                content2 +
+                otherContent +
                 ">>>>>>>\n";
-
+        exit(newContent);
         Blob cb = new Blob(newContent.getBytes(StandardCharsets.UTF_8));
         return cb;
     }
