@@ -933,8 +933,8 @@ public class Repository {
     }
 
     private static Blob generateConflictBlob(String blobID1, String blobID2){
-        String content1 = blobID1 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID1));
-        String content2 = blobID2 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID2));
+        String content1 = blobID1 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID1)) + "\n";
+        String content2 = blobID2 == null ? "":readContentsAsString(join(OBJECTS_DIR, blobID2)) + "\n";
         String newContent = "<<<<<<< HEAD\n" +
                 content1+
                 "=======\n" +
