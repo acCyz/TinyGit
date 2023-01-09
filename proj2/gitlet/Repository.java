@@ -792,6 +792,9 @@ public class Repository {
             exit("Given branch is an ancestor of the current branch.");
         }else if(split.equals(head)){
             // take curBranchHead fast moved to other head
+            // 将当前分支头的文件内容覆盖为目标分支的head的所有文件
+            changeCWDAndClearStageTo(other);
+            // 将当前分支头指针指向other
             setCurBranchHeadTo(other.getID());
             exit("Current branch fast-forwarded.");
         }
