@@ -917,16 +917,17 @@ public class Repository {
             String splitVersion = splitMap.get(filePath);
             String headVersion = headMap.get(filePath);
             String otherVersion = otherMap.get(filePath);
-            if(headMap.containsKey(filePath) && otherMap.containsKey(filePath)){
-                if(!equal(splitVersion, headVersion) && !equal(splitVersion, otherVersion) && !equal(headVersion, otherVersion)){
-                    Blob nb = generateConflictBlob(headVersion, otherVersion);
-                    nb.persist(OBJECTS_DIR);
-                    File file = getFileFromCWD(filePath);
-                    writeContents(file, nb.getContent());
 
-                    conflictList.put(filePath, nb.getID());
-                }
+            if(!equal(splitVersion, headVersion) && !equal(splitVersion, otherVersion) && !equal(headVersion, otherVersion)){
+                Blob nb = generateConflictBlob(headVersion, otherVersion);
+                nb.persist(OBJECTS_DIR);
+                File file = getFileFromCWD(filePath);
+                writeContents(file, nb.getContent());
+
+                conflictList.put(filePath, nb.getID());
             }
+
+
         }
         return conflictList;
     }
