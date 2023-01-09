@@ -882,18 +882,27 @@ public class Repository {
         Map<String, String> otherMap = other.getPathToBlobID();
 
         Map<String, String> overwriteList = new HashMap<>();
+        Map<String, String> writeList = new HashMap<>();
         for(String filepath : allFiles){
             String splitVersion = splitMap.get(filepath);
             String headVersion = headMap.get(filepath);
             String otherVersion = otherMap.get(filepath);
-            if((splitVersion != null && !splitVersion.equals(otherVersion) && splitVersion.equals(headVersion))
-                    || (splitVersion == null && headVersion == null && otherVersion != null)){
+            if(splitVersion != null && !splitVersion.equals(otherVersion) && splitVersion.equals(headVersion)){
                 overwriteList.put(filepath, otherVersion);
+            }else if(splitVersion == null && headVersion == null && otherVersion != null){
+                writeList.put(filepath, otherVersion);
             }
         }
 
+        // overwrite
         for(String filePath : overwriteList.keySet()){
             checkout(other.getID(), filePath);
+        }
+        // write
+        for(String filePath : writeList.keySet()){
+            File file = getFileFromCWD(filePath);
+            Blob blob = loadBlobByID(writeList.get(filePath));
+            writeContents(file, blob.getContent());
         }
         return overwriteList;
     }
