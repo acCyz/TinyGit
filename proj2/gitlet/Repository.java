@@ -1,6 +1,5 @@
 package gitlet;
 
-import org.graalvm.compiler.printer.CanonicalStringGraphPrinter;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -854,8 +853,7 @@ public class Repository {
                                                              Map<String, String> owFilePathToBlob,
                                                              Map<String, String> rmFilePathToBlob,
                                                              Map<String, String> cfFilePathToBlob){
-        Map<String, String> newFilePathToBlob = new HashMap<>();
-        newFilePathToBlob.putAll(headFilePathToBlob);
+        Map<String, String> newFilePathToBlob = new HashMap<>(headFilePathToBlob);
         for(String owFilePath : owFilePathToBlob.keySet()){
             newFilePathToBlob.put(owFilePath, owFilePathToBlob.get(owFilePath));
         }
