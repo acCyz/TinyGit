@@ -933,14 +933,13 @@ public class Repository {
     }
 
     private static Blob generateConflictBlob(String headBlobID, String otherBlobID){
-        String headContent = headBlobID == null ? "":readContentsAsString(join(OBJECTS_DIR, headBlobID)) + "\n";
-        String otherContent = otherBlobID == null ? "":readContentsAsString(join(OBJECTS_DIR, otherBlobID)) + "\n";
+        String headContent = headBlobID == null ? "":readContentsAsString(join(OBJECTS_DIR, headBlobID)) ;
+        String otherContent = otherBlobID == null ? "":readContentsAsString(join(OBJECTS_DIR, otherBlobID)) ;
         String newContent = "<<<<<<< HEAD\n" +
                 headContent+
                 "=======\n" +
                 otherContent +
                 ">>>>>>>\n";
-        exit(newContent);
         Blob cb = new Blob(newContent.getBytes(StandardCharsets.UTF_8));
         return cb;
     }
