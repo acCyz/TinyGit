@@ -36,16 +36,24 @@ public class Repository {
      *      |--refs
      *      |    |--heads
      *      |         |--master
+     *      |    |--remotes
+     *      |         |--orig1
+     *      |              |--HEAD(cur branch of orig1)
+     *      |              |--main(branch heads)
+     *      |         |--orig2
      *      |--stage
      *      |--HEAD
+     *      |--FETCH_HEAD (latest commitID of fetched remotes)
+     *      |--ORIG_HEAD (the LCA commitID of HEAD and remote)
      */
     public static final File OBJECTS_DIR = join(GITLET_DIR, "objects");
     public static final File REFS_DIR = join(GITLET_DIR, "refs");
     public static final File HEADS_DIR = join(REFS_DIR, "heads");
-
+    public static final File REMOTES_DIR = join(REFS_DIR, "remotes");
     //public static final File STAGE_FILE = join(GITLET_DIR, "stage");
     public static final File ADDSTAGE_FILE = join(GITLET_DIR, "add_stage");
     public static final File REMOVESTAGE_FILE = join(GITLET_DIR, "remove_stage");
+    private static final File CONFIG = join(GITLET_DIR, "config");;
     public static final File HEAD_FILE = join(GITLET_DIR, "HEAD");
 
     /** TODO:维护curCommit、stage等变量，在Repository类初始化时，自动加载
@@ -60,7 +68,7 @@ public class Repository {
 
     /** Command init 初始化仓库 */
     public static void init(){
-        if(GITLET_DIR.exists() && GITLET_DIR.isDirectory()){
+        if (GITLET_DIR.exists() && GITLET_DIR.isDirectory()){
             exit("A Gitlet version-control system already exists in the current directory.");
         }
         // 创建目录
@@ -160,6 +168,32 @@ public class Repository {
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
+    private static void addConfig(String remoteName, String remoteAddress) {
+        String contents = readContentsAsString(CONFIG);
+        contents += "[remote \"" + remoteName + "\"]\n";
+        contents += remoteAddress + "\n";
+        setConfig(contents);
+    }
+
+    private static void rmConfig(String remoteName) {
+        String[] contents = readContentsAsString(CONFIG).split("\n");
+        String target = "[remote \"" + remoteName + "\"]";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < contents.length;) {
+            if (contents[i].equals(target)) {
+                // skip content
+                i += 2;
+            } else {
+                sb.append(contents[i]);
+            }
+        }
+        setConfig(sb.toString());
+    }
+
+    private static void setConfig(String contents) {
+        writeContents(CONFIG, contents);
+    }
+
     private static Stage loadAddStage(){
         if (!ADDSTAGE_FILE.exists()) {
             return new Stage();
@@ -176,17 +210,17 @@ public class Repository {
 
     private static Commit loadCurCommit() {
         String curCommitID = readCurCommitID();
-        File CUR_COMMIT_FILE = join(OBJECTS_DIR, curCommitID);
-        return readObject(CUR_COMMIT_FILE, Commit.class);
+        File curCommitFile = join(OBJECTS_DIR, curCommitID);
+        return readObject(curCommitFile, Commit.class);
     }
 
     private static Commit loadCommitByID(String commitID){
         if (commitID.length() == 40) {
-            File CUR_COMMIT_FILE = join(OBJECTS_DIR, commitID);
-            if (!CUR_COMMIT_FILE.exists()) {
+            File curCommitFile = join(OBJECTS_DIR, commitID);
+            if (!curCommitFile.exists()) {
                 return null;
             }
-            return readObject(CUR_COMMIT_FILE, Commit.class);
+            return readObject(curCommitFile, Commit.class);
         } else {
             List<String> objectID = plainFilenamesIn(OBJECTS_DIR);
             if(objectID != null) {
@@ -202,11 +236,11 @@ public class Repository {
 
     private static Blob loadBlobByID(String blobID) {
         if (blobID.length() == 40) {
-            File CUR_BLOB_FILE = join(OBJECTS_DIR, blobID);
-            if (!CUR_BLOB_FILE.exists()) {
+            File curBlobFile = join(OBJECTS_DIR, blobID);
+            if (!curBlobFile.exists()) {
                 return null;
             }
-            return readObject(CUR_BLOB_FILE, Blob.class);
+            return readObject(curBlobFile, Blob.class);
         } else {
             List<String> objectID = plainFilenamesIn(OBJECTS_DIR);
             if (objectID != null) {
@@ -230,12 +264,12 @@ public class Repository {
         return readContentsAsString(HEAD_FILE);
     }
 
-    public static String readBranchHead(String branchName){
-        File HEADS_FILE = join(HEADS_DIR, branchName);
-        return readContentsAsString(HEADS_FILE);
+    public static String readBranchHead(String branchName) {
+        File headsFile = join(HEADS_DIR, branchName);
+        return readContentsAsString(headsFile);
     }
 
-    private static void setCurBranchHeadTo(String commitID){
+    private static void setCurBranchHeadTo(String commitID) {
         String curBranchName = getCurBranchName();
         setOrCreateBranch(curBranchName, commitID);
     }
@@ -244,7 +278,7 @@ public class Repository {
         writeContents(HEAD_FILE, targetBranchName);
     }
 
-    public static void commit(String message){
+    public static void commit(String message) {
         // 检查message是否非空
         if(message.length() == 0){
             exit("Please enter a commit message.");
@@ -389,7 +423,9 @@ public class Repository {
 
     public static void global_log(){
         List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
-        if(commitList == null) return;
+        if (commitList == null) {
+            return;
+        }
 
         List<String> logInfo = new ArrayList<>();
         for (String id : commitList) {
@@ -981,8 +1017,6 @@ public class Repository {
      * 7. unmodified in other but not present in head, (remain remove)
      */
 
-
-
     private static List<String> generateAllFiles(Commit splitPoint, Commit newCommit, Commit mergeCommit) {
         List<String> allFiles = new ArrayList<>(splitPoint.getPathToBlobID().keySet());
         allFiles.addAll(newCommit.getPathToBlobID().keySet());
@@ -991,6 +1025,66 @@ public class Repository {
         allFiles.clear();
         allFiles.addAll(set);
         return allFiles;
+    }
+
+    public static void add_remote(String remoteName, String remoteAddress) {
+        checkIfRemoteExisted(remoteName);
+        // TODO:check user info and server valid
+
+        // java.io.File.separator
+        String validAddress = remoteAddress.replaceAll("/", File.separator);
+
+        /*
+         * same as git
+        [remote "origin"]
+            url = ..\\remotegit\\.git
+            fetch = +refs/heads/*:refs/remotes/origin/*
+         */
+        addConfig(remoteName, validAddress);
+    }
+
+    public static void checkIfRemoteExisted(String remoteName) {
+        /*
+        File remoteDir = join(REMOTES_DIR, remoteName);
+        if (remoteDir.isDirectory()) {
+
+        }
+        *
+        */
+        String[] contents = readContentsAsString(CONFIG).split("\n");
+        String target = "[remote \"" + remoteName + "\"]";
+        for (int i = 0; i < contents.length;) {
+            if (contents[i].equals(target)) {
+                exit("A remote with that name already exists.");
+            }
+            i += 2;
+        }
+    }
+
+    public static void rm_remote(String remoteName) {
+        checkIfRemoteNotExisted(remoteName);
+        // TODO:check user info and server valid
+
+        rmConfig(remoteName);
+    }
+
+    public static void checkIfRemoteNotExisted(String remoteName) {
+        /*
+        File remoteDir = join(REMOTES_DIR, remoteName);
+        if (!remoteDir.isDirectory()) {
+            exit("A remote with that name does not exist.");
+        }
+        *
+        */
+        String[] contents = readContentsAsString(CONFIG).split("\n");
+        String target = "[remote \"" + remoteName + "\"]";
+        for (int i = 0; i < contents.length;) {
+            if (contents[i].equals(target)) {
+                return;
+            }
+            i += 2;
+        }
+        exit("A remote with that name does not exist.");
     }
 
 

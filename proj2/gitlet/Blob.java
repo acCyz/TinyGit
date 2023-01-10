@@ -37,12 +37,6 @@ public class Blob implements Serializable{
         return this.content;
     }
 
-    /*
-    public String getFilePath() {
-        return this.filePath;
-    }
-    */
-
     public void persist(File BLOB_DIR){
         File file = join(BLOB_DIR, this.getID()); // now, without Tries firstly...
         writeObject(file, this);

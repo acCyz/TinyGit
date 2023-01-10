@@ -104,6 +104,17 @@ public class Main {
                 Repository.checkIfInitialized();
                 Repository.merge(args[1]);
                 break;
+            case "add-remote":
+                checkArgsValid(args, 3);
+                Repository.checkIfInitialized();
+                Repository.add_remote(args[1], args[2]);
+                break;
+            case "rm-remote":
+                checkArgsValid(args, 2);
+                Repository.checkIfInitialized();
+                Repository.rm_remote(args[1]);
+                break;
+
             default:
                 exit("No command with that name exists.");
         }

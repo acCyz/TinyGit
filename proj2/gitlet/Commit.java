@@ -116,9 +116,9 @@ public class Commit implements Serializable {
     }
 
 
-    public void persist(File COMMIT_DIR) {
+    public void persist(File commitDir) {
         // TODO:真正的git是将id的前2位作为子目录名，后38位作为2位目录下的文件名
-        File file = join(COMMIT_DIR, this.getID()); // now, without Tries firstly...
+        File file = join(commitDir, this.getID()); // now, without Tries firstly...
         writeObject(file, this);
     }
 
