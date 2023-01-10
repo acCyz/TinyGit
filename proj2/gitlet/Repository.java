@@ -53,7 +53,7 @@ public class Repository {
     //public static final File STAGE_FILE = join(GITLET_DIR, "stage");
     public static final File ADDSTAGE_FILE = join(GITLET_DIR, "add_stage");
     public static final File REMOVESTAGE_FILE = join(GITLET_DIR, "remove_stage");
-    private static final File CONFIG = join(GITLET_DIR, "config");;
+    private static final File CONFIG_FILE = join(GITLET_DIR, "config");;
     public static final File HEAD_FILE = join(GITLET_DIR, "HEAD");
 
     /** TODO:维护curCommit、stage等变量，在Repository类初始化时，自动加载
@@ -79,6 +79,8 @@ public class Repository {
 
         // 更新当前HEAD指向为当前分支
         initHEAD();
+
+        initConfig();
     }
 
     /** create dir */
@@ -116,6 +118,9 @@ public class Repository {
 
     private static void initHEAD(){
         writeContents(HEAD_FILE, DEFAULT_BRANCH_NAME);
+    }
+    private static void initConfig(){
+        writeContents(CONFIG_FILE, "");
     }
 
     /** command add[filename]
@@ -169,14 +174,14 @@ public class Repository {
     }
 
     private static void addConfig(String remoteName, String remoteAddress) {
-        String contents = readContentsAsString(CONFIG);
+        String contents = readContentsAsString(CONFIG_FILE);
         contents += "[remote \"" + remoteName + "\"]\n";
         contents += remoteAddress + "\n";
         setConfig(contents);
     }
 
     private static void rmConfig(String remoteName) {
-        String[] contents = readContentsAsString(CONFIG).split("\n");
+        String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
         String target = "[remote \"" + remoteName + "\"]";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < contents.length;) {
@@ -191,7 +196,7 @@ public class Repository {
     }
 
     private static void setConfig(String contents) {
-        writeContents(CONFIG, contents);
+        writeContents(CONFIG_FILE, contents);
     }
 
     private static Stage loadAddStage(){
@@ -1029,11 +1034,11 @@ public class Repository {
 
     public static void add_remote(String remoteName, String remoteAddress) {
         checkIfRemoteExisted(remoteName);
-        // TODO:check user info and server valid
+        // TODO:check user info and server address valid
 
         // java.io.File.separator
         String validAddress = remoteAddress.replaceAll("/", File.separator);
-
+        // do not mkdirs in add_remote
         /*
          * same as git
         [remote "origin"]
@@ -1051,7 +1056,7 @@ public class Repository {
         }
         *
         */
-        String[] contents = readContentsAsString(CONFIG).split("\n");
+        String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
         String target = "[remote \"" + remoteName + "\"]";
         for (int i = 0; i < contents.length;) {
             if (contents[i].equals(target)) {
@@ -1076,7 +1081,7 @@ public class Repository {
         }
         *
         */
-        String[] contents = readContentsAsString(CONFIG).split("\n");
+        String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
         String target = "[remote \"" + remoteName + "\"]";
         for (int i = 0; i < contents.length;) {
             if (contents[i].equals(target)) {
