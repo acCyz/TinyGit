@@ -17,107 +17,95 @@ public class Main {
         }
         Repository repo = new Repository();
         String firstArg = args[0];
-        switch(firstArg) {
-            case "init":
-                // TODO: handle the `init` command
-                checkArgsValid(args, 1);
-                repo.init();
-                break;
-            case "add":
-                // TODO: handle the `add [filename]` command
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.add(args[1]);
-                break;
-            case "commit":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.commit(args[1]);
-                break;
-            case "rm":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.rm(args[1]);
-                break;
-            case "log":
-                checkArgsValid(args, 1);
-                repo.checkIfInitialized();
-                repo.log();
-                break;
-            case "global-log":
-                checkArgsValid(args, 1);
-                repo.checkIfInitialized();
-                repo.global_log();
-                break;
-            case "find":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.find(args[1]);
-                break;
-            case "status":
-                checkArgsValid(args, 1);
-                repo.checkIfInitialized();
-                repo.status();
-                break;
-            case "checkout":
-                repo.checkIfInitialized();
-                switch (args.length) {
-                    case 2:
-                        /* * checkout [branch name] */
-                        repo.checkoutBranch(args[1]);
-                        break;
-                    case 3:
-                        if (!args[1].equals("--")) {
-                            exit("Incorrect operands.");
-                        }
-                        /* * checkout -- [file name] */
-                        repo.checkout(args[2]);
-                        break;
-                    case 4:
-                        if (!args[2].equals("--")) {
-                            exit("Incorrect operands.");
-                        }
-                        /* * checkout [commit id] -- [file name] */
-                        repo.checkout(args[1], args[3]);
-                        break;
-                    default:
-                        exit("Incorrect operands.");
-                }
-                break;
-            case "branch":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.branch(args[1]);
-                break;
-            case "rm-branch":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.rm_branch(args[1]);
-                break;
-            case "reset":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.reset(args[1]);
-                break;
-            case "merge":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.merge(args[1]);
-                break;
-            case "add-remote":
-                checkArgsValid(args, 3);
-                repo.checkIfInitialized();
-                repo.add_remote(args[1], args[2]);
-                break;
-            case "rm-remote":
-                checkArgsValid(args, 2);
-                repo.checkIfInitialized();
-                repo.rm_remote(args[1]);
-                break;
 
-            default:
-                exit("No command with that name exists.");
+        if(firstArg.equals("init")) {
+            checkArgsValid(args, 1);
+            repo.init();
+        }else{
+            repo.checkIfInitialized();
+            switch(firstArg) {
+                case "add":
+                    checkArgsValid(args, 2);
+                    repo.add(args[1]);
+                    break;
+                case "commit":
+                    checkArgsValid(args, 2);
+                    repo.commit(args[1]);
+                    break;
+                case "rm":
+                    checkArgsValid(args, 2);
+                    repo.rm(args[1]);
+                    break;
+                case "log":
+                    checkArgsValid(args, 1);
+                    repo.log();
+                    break;
+                case "global-log":
+                    checkArgsValid(args, 1);
+                    repo.global_log();
+                    break;
+                case "find":
+                    checkArgsValid(args, 2);
+                    repo.find(args[1]);
+                    break;
+                case "status":
+                    checkArgsValid(args, 1);
+                    repo.status();
+                    break;
+                case "checkout":
+                    switch (args.length) {
+                        case 2:
+                            /* * checkout [branch name] */
+                            repo.checkoutBranch(args[1]);
+                            break;
+                        case 3:
+                            if (!args[1].equals("--")) {
+                                exit("Incorrect operands.");
+                            }
+                            /* * checkout -- [file name] */
+                            repo.checkout(args[2]);
+                            break;
+                        case 4:
+                            if (!args[2].equals("--")) {
+                                exit("Incorrect operands.");
+                            }
+                            /* * checkout [commit id] -- [file name] */
+                            repo.checkout(args[1], args[3]);
+                            break;
+                        default:
+                            exit("Incorrect operands.");
+                    }
+                    break;
+                case "branch":
+                    checkArgsValid(args, 2);
+                    repo.branch(args[1]);
+                    break;
+                case "rm-branch":
+                    checkArgsValid(args, 2);
+                    repo.rm_branch(args[1]);
+                    break;
+                case "reset":
+                    checkArgsValid(args, 2);
+                    repo.reset(args[1]);
+                    break;
+                case "merge":
+                    checkArgsValid(args, 2);
+                    repo.merge(args[1]);
+                    break;
+                case "add-remote":
+                    checkArgsValid(args, 3);
+                    repo.add_remote(args[1], args[2]);
+                    break;
+                case "rm-remote":
+                    checkArgsValid(args, 2);
+                    repo.rm_remote(args[1]);
+                    break;
+
+                default:
+                    exit("No command with that name exists.");
+            }
         }
+
     }
 
     public static void checkArgsValid(String[] args, int num){

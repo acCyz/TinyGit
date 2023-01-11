@@ -2,6 +2,7 @@ package gitlet;
 
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.*;
@@ -832,16 +833,11 @@ public class Repository {
         String message = "Merged " + otherBranchName + " into " + readCurBranchName() + ".";
         Map<String, String> newFilePathToBlob = mergeNewPathToBlob(headCommit.getPathToBlobID(), owFilePathToBlob, rmFilePathToBlob, cfFilePathToBlob);
 
-        List<String> newParents = new ArrayList<String>(){{
-            add(headCommit.getID());
-            add(otherCommit.getID());
-        }};
-        //newParents.add(headCommit.getID());
-        //newParents.add(otherCommit.getID());
+        // TODO: 如果使用双括号初始化，则会序列化失败，因为创建的是List的匿名子类
+        List<String> newParents = new ArrayList<>();
+        newParents.add(headCommit.getID());
+        newParents.add(otherCommit.getID());
 
-        //Commit newCommit = new Commit();\
-        //newParents = new ArrayList<>();
-        //exit(newParents.get(0) + " // " + newParents.get(1));
         Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
         // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
@@ -1064,7 +1060,7 @@ public class Repository {
     }
 
     public void add_remote(String remoteName, String remoteAddress) {
-        checkIfRemoteExisted(remoteName);
+        checkIfRemoteNameExisted(remoteName);
         // TODO:check user info and server address valid
 
         // java.io.File.separator
@@ -1079,7 +1075,7 @@ public class Repository {
         addConfig(remoteName, validAddress);
     }
 
-    public void checkIfRemoteExisted(String remoteName) {
+    public void checkIfRemoteNameExisted(String remoteName) {
         /*
         File remoteDir = join(REMOTES_DIR, remoteName);
         if (remoteDir.isDirectory()) {
@@ -1098,13 +1094,13 @@ public class Repository {
     }
 
     public void rm_remote(String remoteName) {
-        checkIfRemoteNotExisted(remoteName);
+        checkIfRemoteNameNotExisted(remoteName);
         // TODO:check user info and server valid
 
         rmConfig(remoteName);
     }
 
-    public void checkIfRemoteNotExisted(String remoteName) {
+    public void checkIfRemoteNameNotExisted(String remoteName) {
         /*
         File remoteDir = join(REMOTES_DIR, remoteName);
         if (!remoteDir.isDirectory()) {
@@ -1122,6 +1118,35 @@ public class Repository {
         }
         exit("A remote with that name does not exist.");
     }
+
+    public void fetch(String remoteName, String remoteBranchName){
+        checkIfRemoteNameExisted(remoteName);
+        String remoteAddress = readRemoteAddress(remoteName);
+
+        String remoteCWD = new File(remoteAddress).getParent();
+        Repository remote = new Repository(remoteCWD);
+        remote.checkIfInitialized();
+
+        remote.checkIfBranchNotExisted(remoteBranchName, "That remote does not have that branch.");
+
+
+    }
+
+    private String readRemoteAddress(String remoteName) {
+        String path = "";
+        String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
+        for (int i = 0; i < contents.length;) {
+            if (contents[i].contains(remoteName)) {
+                path = contents[i + 1];
+                break;
+            } else {
+                i += 2;
+            }
+        }
+        return path;
+    }
+
+
 
 
 
