@@ -836,8 +836,9 @@ public class Repository {
             add(otherCommit.getID());
         }};
 
-        Commit newCommit = new Commit();
-        //Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
+        //Commit newCommit = new Commit();\
+        message = "ssssss";
+        Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
         // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
 
