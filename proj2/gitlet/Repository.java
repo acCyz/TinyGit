@@ -1197,8 +1197,96 @@ public class Repository {
     }
 
     public void push(String remoteName, String remoteBranchName) {
+        String remoteAddress = readRemoteAddress(remoteName);
+        String remoteCWD = new File(remoteAddress).getParent();
 
+        Repository remote = new Repository(remoteCWD);
+        remote.checkIfInitialized("Remote directory not found.");
+
+        // If the Gitlet system on the remote machine exists but does not
+        // have the input branch, then simply add the branch to the remote Gitlet.
+        if (!remote.isBranchExisted(remoteBranchName)) {
+            remote.branch(remoteBranchName);
+        }
+
+        String remoteBranchHead = remote.readBranchHead(remoteBranchName);
+        Commit remoteHead = remote.loadCommitByID(remoteBranchHead);
+        List<String> historyId = getHistoryId(loadCurCommit());
+        // If the remote branch’s head is not in the
+        // history of the current local head.
+        if (!historyId.contains(remoteHead.getID())) {
+            exit("Please pull down remote changes before pushing.");
+        }
+
+        // append the future commits to the remote branch.
+        pushCommit(remote, remoteHead, historyId);
+
+        // Then, the remote should reset to the front of
+        // the appended commits.
+        // 存疑，这里要切换当前分支吗？
+        String localCurHead = readCurCommitID();
+        remote.checkoutBranch(remoteBranchName);
+        remote.reset(localCurHead);
     }
+
+    private List<String> getHistoryId(Commit head) {
+        List<String> res = new LinkedList<>();
+        Queue<Commit> queue = new LinkedList<>();
+        queue.add(head);
+        while (!queue.isEmpty()) {
+            Commit commit = queue.poll();
+            if (!res.contains(commit.getID()) && !commit.getParents().isEmpty()) {
+                for (String id : commit.getParents()) {
+                    queue.add(loadCommitByID(id));
+                }
+            }
+            res.add(commit.getID());
+        }
+        return res;
+    }
+
+    private void pushCommit(Repository remote, Commit remoteHead, List<String> history) {
+        for (String commitId : history) {
+            // until the end of the given branch at the given remote.
+            if (commitId.equals(remoteHead.getID())) {
+                break;
+            }
+
+            Commit commit = loadCommitByID(commitId);
+            cpCommitToRemote(remote, commit, commitId);
+            cpCommitBlobsToRemote(remote, commit, commitId);
+        }
+    }
+
+    /**
+     * Cp commit persisting contents to remote.
+     * @param remote
+     * @param commit
+     * @param commitId
+     */
+    private void cpCommitToRemote(Repository remote, Commit commit, String commitId) {
+        File remoteCommitFile = join(remote.OBJECTS_DIR, commitId);
+        writeObject(remoteCommitFile, commit);
+    }
+
+    /**
+     * Cp commit's blobs's persisting contents to remote.
+     * @param remote
+     * @param commit
+     * @param commitId
+     */
+    private void cpCommitBlobsToRemote(Repository remote, Commit commit, String commitId) {
+        if (!commit.getPathToBlobID().isEmpty()) {
+            for (Map.Entry<String, String> entry : commit.getPathToBlobID().entrySet()) {
+                String blobId = entry.getValue();
+                Blob blob = loadBlobByID(blobId);
+
+                File remoteBlob = join(remote.OBJECTS_DIR, blobId);
+                writeObject(remoteBlob, blob);
+            }
+        }
+    }
+
 
 
 
