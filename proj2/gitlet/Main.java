@@ -100,6 +100,18 @@ public class Main {
                     checkArgsValid(args, 2);
                     repo.rm_remote(args[1]);
                     break;
+                case "push":
+                    checkArgsValid(args, 3);
+                    repo.push(args[1], args[2]);
+                    break;
+                case "fetch":
+                    checkArgsValid(args, 3);
+                    repo.fetch(args[1], args[2]);
+                    break;
+                case "pull":
+                    checkArgsValid(args, 3);
+                    repo.pull(args[1], args[2]);
+                    break;
 
                 default:
                     exit("No command with that name exists.");

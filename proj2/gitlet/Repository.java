@@ -1190,8 +1190,12 @@ public class Repository {
     public void pull(String remoteName, String remoteBranchName) {
         fetch(remoteName, remoteBranchName);
 
-        String otherBranchName = remoteName + "/" + remoteBranchName;
+        String otherBranchName = remoteName + File.separator + remoteBranchName;
         merge(otherBranchName);
+    }
+
+    public void push(String remoteName, String remoteBranchName) {
+
     }
 
 
