@@ -900,7 +900,7 @@ public class Repository {
     }
 
     private Map<String, Integer> findAncestors(Commit commit){
-        Map<String, Integer> map = new HashMap<>();
+        Map<String, Integer> map = new TreeMap<>();
         Queue<Commit> queue = new ArrayDeque<>();
         queue.offer(commit);
         int depth = 1;
@@ -931,7 +931,7 @@ public class Repository {
                                                              Map<String, String> owFilePathToBlob,
                                                              Map<String, String> rmFilePathToBlob,
                                                              Map<String, String> cfFilePathToBlob){
-        Map<String, String> newFilePathToBlob = new HashMap<>(headFilePathToBlob);
+        Map<String, String> newFilePathToBlob = new TreeMap<>(headFilePathToBlob);
         for(String owFilePath : owFilePathToBlob.keySet()){
             newFilePathToBlob.put(owFilePath, owFilePathToBlob.get(owFilePath));
         }
@@ -957,7 +957,7 @@ public class Repository {
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
 
-        Map<String, String> overwriteList = new HashMap<>();
+        Map<String, String> overwriteList = new TreeMap<>();
         for(String filepath : allFiles){
             String splitVersion = splitMap.get(filepath);
             String headVersion = headMap.get(filepath);
@@ -988,7 +988,7 @@ public class Repository {
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
 
-        Map<String, String> conflictList = new HashMap<>();
+        Map<String, String> conflictList = new TreeMap<>();
         for(String filePath : allFiles){
             String splitVersion = splitMap.get(filePath);
             String headVersion = headMap.get(filePath);
@@ -1033,7 +1033,7 @@ public class Repository {
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
 
-        Map<String, String> removeList = new HashMap<>();
+        Map<String, String> removeList = new TreeMap<>();
         for(String filePath : allFiles){
             String splitVersion = splitMap.get(filePath);
             String headVersion = headMap.get(filePath);
