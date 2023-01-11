@@ -664,15 +664,6 @@ public class Repository {
             // 这里会覆盖写吗?
             writeContents(file, blob.getContent());
 
-            /*
-            // unIndexed for stage
-            Stage addStage = loadAddStage();
-            Stage removeStage = loadRemoveStage();
-            addStage.delete(file.getPath());
-            removeStage.delete(file.getPath());
-            persistStage(addStage, removeStage);
-            *
-             */
         }
     }
 
@@ -845,7 +836,8 @@ public class Repository {
             add(otherCommit.getID());
         }};
 
-        Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
+        Commit newCommit = new Commit();
+        //Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
         // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
 
