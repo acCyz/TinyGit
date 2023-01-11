@@ -1194,7 +1194,13 @@ public class Repository {
 
     public void push(String remoteName, String remoteBranchName) {
         String remoteAddress = readRemoteAddress(remoteName);
-        String remoteCWD = new File(remoteAddress).getParent();
+        File file = null;
+        try {
+            file = new File(remoteAddress).getCanonicalFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        String remoteCWD = file.getParent();
 
         Repository remote = new Repository(remoteCWD);
         remote.checkIfInitialized("Remote directory not found.");
