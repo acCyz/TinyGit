@@ -317,7 +317,7 @@ public class Repository {
     }
 
     private void setCurBranchHeadTo(String commitID) {
-        String curBranchName = getCurBranchName();
+        String curBranchName = readCurBranchName();
         setOrCreateBranch(curBranchName, commitID);
     }
 
@@ -384,10 +384,6 @@ public class Repository {
         List<String> newParents = new ArrayList<>();
         newParents.add(preCommit.getID());
         return newParents;
-    }
-
-    private String getCurBranchName(){
-        return readContentsAsString(HEAD_FILE);
     }
 
     private void clearStage(Stage addStage, Stage removeStage){
@@ -511,7 +507,7 @@ public class Repository {
 
     private List<String> listBranches(){
         List<String> info = new ArrayList<>();
-        String curBranch = getCurBranchName();
+        String curBranch = readCurBranchName();
         info.add("*" + curBranch);
         List<String> branchList = plainFilenamesIn(HEADS_DIR);
         if(branchList != null){
@@ -797,7 +793,7 @@ public class Repository {
     }
 
     private void checkIfIsCurBranch(String branchName, String errMessage){
-        if(branchName.equals(getCurBranchName())){
+        if(branchName.equals(readCurBranchName())){
             exit(errMessage);
         }
     }
@@ -1225,7 +1221,9 @@ public class Repository {
         // the appended commits.
         // 存疑，这里要切换当前分支吗？
         String localCurHead = readCurCommitID();
-        remote.checkoutBranch(remoteBranchName);
+        if (!remoteBranchName.equals(remote.readCurBranchName())) {
+            remote.checkoutBranch(remoteBranchName);
+        }
         remote.reset(localCurHead);
     }
 
