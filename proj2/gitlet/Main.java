@@ -10,75 +10,75 @@ public class Main {
      *  <COMMAND> <OPERAND1> <OPERAND2> ... 
      */
     public static void main(String[] args) {
-        // TODO: what if args is empty?
         // TODO: 使用异常机制
         // TODO: 使用异步GC
         if (args.length == 0) {
             exit("Please enter a command.");
         }
+        Repository repo = new Repository();
         String firstArg = args[0];
         switch(firstArg) {
             case "init":
                 // TODO: handle the `init` command
                 checkArgsValid(args, 1);
-                Repository.init();
+                repo.init();
                 break;
             case "add":
                 // TODO: handle the `add [filename]` command
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.add(args[1]);
+                repo.checkIfInitialized();
+                repo.add(args[1]);
                 break;
             case "commit":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.commit(args[1]);
+                repo.checkIfInitialized();
+                repo.commit(args[1]);
                 break;
             case "rm":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.rm(args[1]);
+                repo.checkIfInitialized();
+                repo.rm(args[1]);
                 break;
             case "log":
                 checkArgsValid(args, 1);
-                Repository.checkIfInitialized();
-                Repository.log();
+                repo.checkIfInitialized();
+                repo.log();
                 break;
             case "global-log":
                 checkArgsValid(args, 1);
-                Repository.checkIfInitialized();
-                Repository.global_log();
+                repo.checkIfInitialized();
+                repo.global_log();
                 break;
             case "find":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.find(args[1]);
+                repo.checkIfInitialized();
+                repo.find(args[1]);
                 break;
             case "status":
                 checkArgsValid(args, 1);
-                Repository.checkIfInitialized();
-                Repository.status();
+                repo.checkIfInitialized();
+                repo.status();
                 break;
             case "checkout":
-                Repository.checkIfInitialized();
+                repo.checkIfInitialized();
                 switch (args.length) {
                     case 2:
                         /* * checkout [branch name] */
-                        Repository.checkoutBranch(args[1]);
+                        repo.checkoutBranch(args[1]);
                         break;
                     case 3:
                         if (!args[1].equals("--")) {
                             exit("Incorrect operands.");
                         }
                         /* * checkout -- [file name] */
-                        Repository.checkout(args[2]);
+                        repo.checkout(args[2]);
                         break;
                     case 4:
                         if (!args[2].equals("--")) {
                             exit("Incorrect operands.");
                         }
                         /* * checkout [commit id] -- [file name] */
-                        Repository.checkout(args[1], args[3]);
+                        repo.checkout(args[1], args[3]);
                         break;
                     default:
                         exit("Incorrect operands.");
@@ -86,33 +86,33 @@ public class Main {
                 break;
             case "branch":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.branch(args[1]);
+                repo.checkIfInitialized();
+                repo.branch(args[1]);
                 break;
             case "rm-branch":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.rm_branch(args[1]);
+                repo.checkIfInitialized();
+                repo.rm_branch(args[1]);
                 break;
             case "reset":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.reset(args[1]);
+                repo.checkIfInitialized();
+                repo.reset(args[1]);
                 break;
             case "merge":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.merge(args[1]);
+                repo.checkIfInitialized();
+                repo.merge(args[1]);
                 break;
             case "add-remote":
                 checkArgsValid(args, 3);
-                Repository.checkIfInitialized();
-                Repository.add_remote(args[1], args[2]);
+                repo.checkIfInitialized();
+                repo.add_remote(args[1], args[2]);
                 break;
             case "rm-remote":
                 checkArgsValid(args, 2);
-                Repository.checkIfInitialized();
-                Repository.rm_remote(args[1]);
+                repo.checkIfInitialized();
+                repo.rm_remote(args[1]);
                 break;
 
             default:

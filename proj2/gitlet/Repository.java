@@ -24,10 +24,47 @@ public class Repository {
      */
 
     /** The current working directory. */
-    public static final String DEFAULT_BRANCH_NAME = "master";
-    public static final File CWD = new File(System.getProperty("user.dir"));
+    private static final String DEFAULT_BRANCH_NAME = "master";
+    private final File CWD;
     /** The .gitlet directory. */
-    public static final File GITLET_DIR = join(CWD, ".gitlet");
+    /*
+     *   .gitlet
+     *      |--objects
+     *      |     |--commit and blob
+     *      |--refs
+     *      |    |--heads
+     *      |         |--master
+     *      |    |--remotes
+     *      |         |--orig1
+     *      |              |--HEAD(cur branch of orig1)
+     *      |              |--main(branch heads)
+     *      |         |--orig2
+     *      |--stage
+     *      |--HEAD (current local head)
+     *      |--FETCH_HEAD (latest commitID of fetched remote branches)
+     *      |--ORIG_HEAD (the LCA commitID of HEAD and remote)
+     */
+    private File GITLET_DIR;
+    private File OBJECTS_DIR;
+    private File REFS_DIR;
+    private File HEADS_DIR;
+    private File REMOTES_DIR;
+    private File ADDSTAGE_FILE;
+    private File REMOVESTAGE_FILE;
+    private File CONFIG_FILE;
+    private File HEAD_FILE;
+
+    /** TODO:维护curCommit、stage等变量，在Repository类初始化时，自动加载
+     * 从而可以方便的进行操作、清空和持久化
+     */
+    public Repository(){
+        CWD = new File(System.getProperty("user.dir"));
+        setDirs();
+    }
+    public Repository(String cwd){
+        CWD = new File(cwd);
+        setDirs();
+    }
 
     /*
      *   .gitlet
@@ -42,32 +79,30 @@ public class Repository {
      *      |              |--main(branch heads)
      *      |         |--orig2
      *      |--stage
-     *      |--HEAD
-     *      |--FETCH_HEAD (latest commitID of fetched remotes)
+     *      |--HEAD (current local head)
+     *      |--FETCH_HEAD (latest commitID of fetched remote branches)
      *      |--ORIG_HEAD (the LCA commitID of HEAD and remote)
      */
-    public static final File OBJECTS_DIR = join(GITLET_DIR, "objects");
-    public static final File REFS_DIR = join(GITLET_DIR, "refs");
-    public static final File HEADS_DIR = join(REFS_DIR, "heads");
-    public static final File REMOTES_DIR = join(REFS_DIR, "remotes");
-    //public static final File STAGE_FILE = join(GITLET_DIR, "stage");
-    public static final File ADDSTAGE_FILE = join(GITLET_DIR, "add_stage");
-    public static final File REMOVESTAGE_FILE = join(GITLET_DIR, "remove_stage");
-    private static final File CONFIG_FILE = join(GITLET_DIR, "config");;
-    public static final File HEAD_FILE = join(GITLET_DIR, "HEAD");
+    private void setDirs(){
+        this.GITLET_DIR = join(CWD, ".gitlet");
+        this.OBJECTS_DIR = join(GITLET_DIR, "objects");
+        this.REFS_DIR = join(GITLET_DIR, "refs");
+        this.HEADS_DIR = join(REFS_DIR, "heads");
+        this.REMOTES_DIR = join(REFS_DIR, "remotes");
+        this.ADDSTAGE_FILE = join(GITLET_DIR, "add_stage");
+        this.REMOVESTAGE_FILE = join(GITLET_DIR, "remove_stage");
+        this.CONFIG_FILE = join(GITLET_DIR, "config");;
+        this.HEAD_FILE = join(GITLET_DIR, "HEAD");
+    }
 
-    /** TODO:维护curCommit、stage等变量，在Repository类初始化时，自动加载
-     * 从而可以方便的进行操作、清空和持久化
-     */
-
-    public static void checkIfInitialized() {
+    public void checkIfInitialized() {
         if (!GITLET_DIR.isDirectory()) {
             exit("Not in an initialized Gitlet directory.");
         }
     }
 
     /** Command init 初始化仓库 */
-    public static void init(){
+    public void init(){
         if (GITLET_DIR.exists() && GITLET_DIR.isDirectory()){
             exit("A Gitlet version-control system already exists in the current directory.");
         }
@@ -84,7 +119,7 @@ public class Repository {
     }
 
     /** create dir */
-    private static void createInitDir() {
+    private void createInitDir() {
         // Need to pay attention to the order
         try{
             mkdir(GITLET_DIR);
@@ -98,7 +133,7 @@ public class Repository {
         }
     }
 
-    private static void initCommitAndHeads(){
+    private void initCommitAndHeads(){
         Commit initCommit = new Commit();
         initCommit.persist(OBJECTS_DIR);
 
@@ -106,27 +141,27 @@ public class Repository {
     }
 
     /** set branch and its head, if branch not existed, created it */
-    private static void setOrCreateBranch(String branchName, String commitID){
+    private void setOrCreateBranch(String branchName, String commitID){
         File HEADS_FILE = join(HEADS_DIR, branchName);
         writeContents(HEADS_FILE, commitID);
     }
 
-    private static void deleteBranch(String branchName) {
+    private void deleteBranch(String branchName) {
         File branchHead = join(HEADS_DIR, branchName);
         deleteGitLetFile(branchHead);
     }
 
-    private static void initHEAD(){
+    private void initHEAD(){
         writeContents(HEAD_FILE, DEFAULT_BRANCH_NAME);
     }
-    private static void initConfig(){
+    private void initConfig(){
         writeContents(CONFIG_FILE, "");
     }
 
     /** command add[filename]
      * TODO: support multi files
      * */
-    public static void add(String fileName) {
+    public void add(String fileName) {
         File file = getFileFromCWD(fileName);
         if (!file.exists()) {
             exit("File does not exist.");
@@ -137,13 +172,13 @@ public class Repository {
         addBlob(file, blob);
     }
 
-    private static File getFileFromCWD(String fileName) {
+    private File getFileFromCWD(String fileName) {
         return Paths.get(fileName).isAbsolute()   // path may out of CWD
                 ? new File(fileName)
                 : join(CWD, fileName);
     }
 
-    public static void addBlob(File file, Blob blob){
+    public void addBlob(File file, Blob blob){
         String filePath = file.getPath();
         String blobID = blob.getID();
         Stage addStage = loadAddStage();
@@ -173,14 +208,14 @@ public class Repository {
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
-    private static void addConfig(String remoteName, String remoteAddress) {
+    private void addConfig(String remoteName, String remoteAddress) {
         String contents = readContentsAsString(CONFIG_FILE);
         contents += "[remote \"" + remoteName + "\"]\n";
         contents += remoteAddress + "\n";
         setConfig(contents);
     }
 
-    private static void rmConfig(String remoteName) {
+    private void rmConfig(String remoteName) {
         String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
         String target = "[remote \"" + remoteName + "\"]";
         StringBuilder sb = new StringBuilder();
@@ -195,31 +230,31 @@ public class Repository {
         setConfig(sb.toString());
     }
 
-    private static void setConfig(String contents) {
+    private void setConfig(String contents) {
         writeContents(CONFIG_FILE, contents);
     }
 
-    private static Stage loadAddStage(){
+    private Stage loadAddStage(){
         if (!ADDSTAGE_FILE.exists()) {
             return new Stage();
         }
         return readObject(ADDSTAGE_FILE, Stage.class);
     }
 
-    private static Stage loadRemoveStage(){
+    private Stage loadRemoveStage(){
         if (!REMOVESTAGE_FILE.exists()) {
             return new Stage();
         }
         return readObject(REMOVESTAGE_FILE, Stage.class);
     }
 
-    private static Commit loadCurCommit() {
+    private Commit loadCurCommit() {
         String curCommitID = readCurCommitID();
         File curCommitFile = join(OBJECTS_DIR, curCommitID);
         return readObject(curCommitFile, Commit.class);
     }
 
-    private static Commit loadCommitByID(String commitID){
+    private Commit loadCommitByID(String commitID){
         if (commitID.length() == 40) {
             File curCommitFile = join(OBJECTS_DIR, commitID);
             if (!curCommitFile.exists()) {
@@ -239,7 +274,7 @@ public class Repository {
         }
     }
 
-    private static Blob loadBlobByID(String blobID) {
+    private Blob loadBlobByID(String blobID) {
         if (blobID.length() == 40) {
             File curBlobFile = join(OBJECTS_DIR, blobID);
             if (!curBlobFile.exists()) {
@@ -260,30 +295,30 @@ public class Repository {
     }
 
 
-    private static String readCurCommitID() {
+    private String readCurCommitID() {
         String curBranch = readCurBranchName();
         return readBranchHead(curBranch);
     }
 
-    private static String readCurBranchName() {
+    private String readCurBranchName() {
         return readContentsAsString(HEAD_FILE);
     }
 
-    public static String readBranchHead(String branchName) {
+    public String readBranchHead(String branchName) {
         File headsFile = join(HEADS_DIR, branchName);
         return readContentsAsString(headsFile);
     }
 
-    private static void setCurBranchHeadTo(String commitID) {
+    private void setCurBranchHeadTo(String commitID) {
         String curBranchName = getCurBranchName();
         setOrCreateBranch(curBranchName, commitID);
     }
 
-    public static void setBranchTo(String targetBranchName){
+    public void setBranchTo(String targetBranchName){
         writeContents(HEAD_FILE, targetBranchName);
     }
 
-    public static void commit(String message) {
+    public void commit(String message) {
         // 检查message是否非空
         if(message.length() == 0){
             exit("Please enter a commit message.");
@@ -313,19 +348,19 @@ public class Repository {
         persistStage(addStage, removeStage);
     }
 
-    private static void checkIfStageChanged(Stage addStage, Stage removeStage){
+    private void checkIfStageChanged(Stage addStage, Stage removeStage){
         if(addStage.isEmpty() && removeStage.isEmpty()){
             exit("No changes added to the commit.");
         }
     }
 
-    private static Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage){
+    private Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage){
         Map<String, String> newPathToBlob = generateNewPathToBlob(addStage, removeStage, preCommit.getPathToBlobID());
         List<String> newParents = generateNewParents(preCommit);
         return new Commit(message, newPathToBlob, newParents);
     }
 
-    private static Map<String, String> generateNewPathToBlob(Stage addStage, Stage removeStage, Map<String, String> pathToBlob){
+    private Map<String, String> generateNewPathToBlob(Stage addStage, Stage removeStage, Map<String, String> pathToBlob){
         Map<String, String> addIndex = addStage.getIndex();
         Map<String, String> removeIndex = removeStage.getIndex();
         // TODO:这里并没有深拷贝一份pathToBlob，而是直接改
@@ -338,27 +373,27 @@ public class Repository {
         return pathToBlob;
     }
 
-    private static List<String> generateNewParents(Commit preCommit){
+    private List<String> generateNewParents(Commit preCommit){
         List<String> newParents = new ArrayList<>();
         newParents.add(preCommit.getID());
         return newParents;
     }
 
-    private static String getCurBranchName(){
+    private String getCurBranchName(){
         return readContentsAsString(HEAD_FILE);
     }
 
-    private static void clearStage(Stage addStage, Stage removeStage){
+    private void clearStage(Stage addStage, Stage removeStage){
         addStage.clear();
         removeStage.clear();
     }
 
-    private static void persistStage(Stage addStage, Stage removeStage){
+    private void persistStage(Stage addStage, Stage removeStage){
         addStage.persist(ADDSTAGE_FILE);
         removeStage.persist(REMOVESTAGE_FILE);
     }
 
-    public static void rm(String fileName) {
+    public void rm(String fileName) {
         File file = getFileFromCWD(fileName);
         String filePath = file.getPath();
         Stage addStage = loadAddStage();
@@ -382,12 +417,12 @@ public class Repository {
         }
     }
 
-    private static String getBlobIDFromCurCommit(Commit curCommit, String filePath){
+    private String getBlobIDFromCurCommit(Commit curCommit, String filePath){
         return curCommit.getBlobIDOf(filePath);
     }
 
 
-    public static void log(){
+    public void log(){
         Commit curCommit = loadCurCommit();
         List<String> logInfo = new ArrayList<>();
         while(!isInitCommit(curCommit)){
@@ -398,35 +433,35 @@ public class Repository {
         printLog(logInfo);
     }
 
-    private static void printLog(List<String> logInfo){
+    private void printLog(List<String> logInfo){
         for(String s : logInfo){
             System.out.println(s);
         }
     }
 
-    private static List<String> wrapInfo(String topBanner, List<String> info){
+    private List<String> wrapInfo(String topBanner, List<String> info){
         info.add(0, topBanner);
         info.add(" ");
         return info;
     }
 
-    private static List<String> generateCommitInfo(Commit curCommit){
+    private List<String> generateCommitInfo(Commit curCommit){
         return wrapInfo("===", curCommit.getInfo());
     }
 
-    private static boolean isInitCommit(Commit commit){
+    private boolean isInitCommit(Commit commit){
         // TODO:如果允许分离HEAD，则通过父引用为空的判断是否还有效？
         return commit.isNoParent();
     }
 
-    private static Commit getFirstParentCommit(Commit curCommit){
+    private Commit getFirstParentCommit(Commit curCommit){
         // TODO:目前是选择第一个父亲（也即当初合并的base分支）进行回溯，
         // 后续可能需要添加额外命令参数支持整个树的回溯
         String firstParentID = curCommit.getParents().get(0);
         return loadCommitByID(firstParentID);
     }
 
-    public static void global_log(){
+    public void global_log(){
         List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
         if (commitList == null) {
             return;
@@ -443,7 +478,7 @@ public class Repository {
         printLog(logInfo);
     }
 
-    public static void find(String message){
+    public void find(String message){
         List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
         if(commitList == null) return;
         List<String> logInfo = new ArrayList<>();
@@ -464,7 +499,7 @@ public class Repository {
         }
     }
 
-    public static void status(){
+    public void status(){
         List<String> logInfo = new ArrayList<>();
         logInfo.addAll(listBranches());
         logInfo.addAll(listStages());
@@ -472,7 +507,7 @@ public class Repository {
         printLog(logInfo);
     }
 
-    private static List<String> listBranches(){
+    private List<String> listBranches(){
         List<String> info = new ArrayList<>();
         String curBranch = getCurBranchName();
         info.add("*" + curBranch);
@@ -488,7 +523,7 @@ public class Repository {
         return info;
     }
 
-    private static List<String> listStages(){
+    private List<String> listStages(){
         List<String> addInfo = new ArrayList<>();
         Stage addStage = loadAddStage();
         if(!addStage.isEmpty()){
@@ -508,7 +543,7 @@ public class Repository {
         return addInfo;
     }
 
-    private static List<String> listUnStagedModificationsAndUntracked(){
+    private List<String> listUnStagedModificationsAndUntracked(){
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
         Map<String, String> commitFilePathToBlobID = loadCurCommit().getPathToBlobID();
         Map<String, String> addStageIndex = loadAddStage().getIndex();
@@ -526,7 +561,7 @@ public class Repository {
         return info1;
     }
 
-    private static Map<String, String> getCWDFilePathToBlobID(){
+    private Map<String, String> getCWDFilePathToBlobID(){
         Map<String, String> CWDFilePathToBlobID = new TreeMap<>();
         List<String> CWDFilenames = plainFilenamesIn(CWD);
         if(CWDFilenames != null) {
@@ -546,7 +581,7 @@ public class Repository {
      * 4. Not staged for removal, but tracked in the current commit and deleted from the working directory.
      * TODO:将判断转为调用commit和stage对象的isTracked方法和inIndexed方法
      *  */
-    public static List<String> listUnStagedModifications(Map<String, String> CWDFilePathToBlobID,
+    public List<String> listUnStagedModifications(Map<String, String> CWDFilePathToBlobID,
                                                          Map<String, String> commitFilePathToBlobID ,
                                                          Map<String, String> addStageIndex ,
                                                          Map<String, String> removeStageIndex ){
@@ -591,7 +626,7 @@ public class Repository {
      *  Ignore any subdirectories that may have been introduced, since Gitlet does not deal with them.
      *  TODO:将判断转为调用commit和stage对象的isTracked方法和inIndexed方法
      */
-    private static List<String> listUntracked(Map<String, String> CWDFilePathToBlobID,
+    private List<String> listUntracked(Map<String, String> CWDFilePathToBlobID,
                                               Map<String, String> commitFilePathToBlobID ,
                                               Map<String, String> addStageIndex ,
                                               Map<String, String> removeStageIndex ){
@@ -609,13 +644,13 @@ public class Repository {
     }
 
     // checkout overload1
-    public static void checkout(String fileName){
+    public void checkout(String fileName){
         String curCommitID = readCurCommitID();
         checkout(curCommitID, fileName);
     }
 
     // checkout overload2
-    public static void checkout(String commitID, String fileName){
+    public void checkout(String commitID, String fileName){
         Commit commit = loadCommitByID(commitID);
         if(commit == null) {
             exit("No commit with that id exists.");
@@ -641,14 +676,14 @@ public class Repository {
         }
     }
 
-    public static void checkIfCommitTrackedFile(Commit commit, File file){
+    public void checkIfCommitTrackedFile(Commit commit, File file){
         if (!commit.isTrackedFile(file.getPath())){
             exit("File does not exist in that commit.");
         }
     }
 
     // checkout 3
-    public static void checkoutBranch(String targetBranchName){
+    public void checkoutBranch(String targetBranchName){
         checkIfBranchNotExisted(targetBranchName, "No such branch exists.");
         checkIfIsCurBranch(targetBranchName, "No need to checkout the current branch.");
 
@@ -663,7 +698,7 @@ public class Repository {
         setBranchTo(targetBranchName);
     }
 
-    private static void changeCWDAndClearStageTo(Commit targetCommit){
+    private void changeCWDAndClearStageTo(Commit targetCommit){
         // deleted files that commit tracked but targetCommit untracked
         deleteTargetCommitUntrackedCWDFiles(targetCommit);
 
@@ -674,7 +709,7 @@ public class Repository {
         clearStageAndPersist();
     }
 
-    private static void deleteTargetCommitUntrackedCWDFiles(Commit targetCommit){
+    private void deleteTargetCommitUntrackedCWDFiles(Commit targetCommit){
         Commit curCommit = loadCurCommit();
         Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
         for(String filePath : curCommitFilePathToBlobID.keySet()){
@@ -685,7 +720,7 @@ public class Repository {
     }
 
     // TODO:用map交集操作来寻找两个commit共同追踪的部分
-    private static void overwriteCWDFilesWith(Commit targetCommit){
+    private void overwriteCWDFilesWith(Commit targetCommit){
         Commit curCommit = loadCurCommit();
         Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
         for(String targetFilePath : targetCommitFilePathToBlobID.keySet()){
@@ -697,7 +732,7 @@ public class Repository {
         }
     }
 
-    private static void clearStageAndPersist(){
+    private void clearStageAndPersist(){
         Stage addStage = loadAddStage();
         addStage.clear();
         addStage.persist(ADDSTAGE_FILE);
@@ -711,7 +746,7 @@ public class Repository {
      *
      *  2. If a working file is untracked in the current branch **【and】** would be overwritten by the checkout/reset
      *  */
-    private static void checkIfHasUntrackedFilesWillOverwriteBy(Commit targetCommit) {
+    private void checkIfHasUntrackedFilesWillOverwriteBy(Commit targetCommit) {
         Commit curCommit = loadCurCommit();
         // TODO:增加对多层目录的文件检测，目前只是在根目录
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
@@ -730,38 +765,38 @@ public class Repository {
         }
     }
 
-    public static void branch(String branchName){
+    public void branch(String branchName){
         checkIfBranchExisted(branchName);
         Commit curCommit = loadCurCommit();
         setOrCreateBranch(branchName, curCommit.getID());
     }
 
-    public static void rm_branch(String branchName){
+    public void rm_branch(String branchName){
         checkIfBranchNotExisted(branchName, "A branch with that name does not exist.");
         checkIfIsCurBranch(branchName, "Cannot remove the current branch.");
         deleteBranch(branchName);
     }
 
-    private static boolean isBranchExisted(String branchName){
+    private boolean isBranchExisted(String branchName){
         List<String> allBranches = plainFilenamesIn(HEADS_DIR);
         return allBranches != null && allBranches.contains(branchName);
     }
 
 
-    private static void checkIfBranchExisted(String branchName) {
+    private void checkIfBranchExisted(String branchName) {
         if (isBranchExisted(branchName)) {
             exit("A branch with that name already exists.");
         }
     }
     /** 因为测试用例严格规定了不同的错误输出语句，
      *  因此只能从checkIfBranchExisted拆出来写check并输出 */
-    private static void checkIfBranchNotExisted(String branchName, String errMessage){
+    private void checkIfBranchNotExisted(String branchName, String errMessage){
         if(!isBranchExisted(branchName)){
             exit(errMessage);
         }
     }
 
-    private static void checkIfIsCurBranch(String branchName, String errMessage){
+    private void checkIfIsCurBranch(String branchName, String errMessage){
         if(branchName.equals(getCurBranchName())){
             exit(errMessage);
         }
@@ -771,7 +806,7 @@ public class Repository {
      *  Removes tracked files that are not present in that commit.
      *  Also moves the current branch’s head to that commit node.
      */
-    public static void reset(String targetCommitID){
+    public void reset(String targetCommitID){
         // TODO:这里实现的是--hard模式，后续可以支持--soft和--mixed模式
         Commit targetCommit = loadCommitByID(targetCommitID);
         if(targetCommit == null){
@@ -786,7 +821,7 @@ public class Repository {
         }
     }
 
-    public static void merge(String otherBranchName){
+    public void merge(String otherBranchName){
         checkIfCurBranchHasUnCommitted();
         checkIfBranchNotExisted(otherBranchName, "A branch with that name does not exist.");
         checkIfIsCurBranch(otherBranchName, "Cannot merge a branch with itself.");
@@ -822,13 +857,13 @@ public class Repository {
         }
     }
 
-    private static void checkIfCurBranchHasUnCommitted(){
+    private void checkIfCurBranchHasUnCommitted(){
         if(!loadAddStage().isEmpty() || !loadRemoveStage().isEmpty()){
             exit("You have uncommitted changes.");
         }
     }
 
-    private static void checkIfSplitIsOneOf(Commit split, Commit other, Commit head){
+    private void checkIfSplitIsOneOf(Commit split, Commit other, Commit head){
         if(split.equals(other)){
             exit("Given branch is an ancestor of the current branch.");
         }else if(split.equals(head)){
@@ -841,7 +876,7 @@ public class Repository {
         }
     }
 
-    private static Commit findSplitPoint(Commit head, Commit other){
+    private Commit findSplitPoint(Commit head, Commit other){
         Map<String, Integer> headAncestors = findAncestors(head);
         Queue<Commit> queue = new ArrayDeque<>();
         queue.offer(other);
@@ -864,7 +899,7 @@ public class Repository {
         return new Commit();
     }
 
-    private static Map<String, Integer> findAncestors(Commit commit){
+    private Map<String, Integer> findAncestors(Commit commit){
         Map<String, Integer> map = new HashMap<>();
         Queue<Commit> queue = new ArrayDeque<>();
         queue.offer(commit);
@@ -888,11 +923,11 @@ public class Repository {
         return map;
     }
 
-    public static Commit mergeIntoNew(Commit split, Commit head, Commit other){
+    public Commit mergeIntoNew(Commit split, Commit head, Commit other){
         return null;
     }
 
-    private static Map<String, String> mergeNewPathToBlob(Map<String, String> headFilePathToBlob,
+    private Map<String, String> mergeNewPathToBlob(Map<String, String> headFilePathToBlob,
                                                              Map<String, String> owFilePathToBlob,
                                                              Map<String, String> rmFilePathToBlob,
                                                              Map<String, String> cfFilePathToBlob){
@@ -917,7 +952,7 @@ public class Repository {
      * @param head
      * @param other
      */
-    private static Map<String, String> overwriteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other){
+    private Map<String, String> overwriteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other){
         Map<String, String> splitMap = split.getPathToBlobID();
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
@@ -948,7 +983,7 @@ public class Repository {
      * @param head
      * @param other
      */
-    private static Map<String, String> mergeConflict(List<String> allFiles, Commit split, Commit head, Commit other){
+    private Map<String, String> mergeConflict(List<String> allFiles, Commit split, Commit head, Commit other){
         Map<String, String> splitMap = split.getPathToBlobID();
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
@@ -973,7 +1008,7 @@ public class Repository {
         return conflictList;
     }
 
-    private static Blob generateConflictBlob(String headBlobID, String otherBlobID){
+    private Blob generateConflictBlob(String headBlobID, String otherBlobID){
         String headContent = headBlobID == null ? "":new String(loadBlobByID(headBlobID).getContent(), StandardCharsets.UTF_8);
         String otherContent = otherBlobID == null ? "":new String(loadBlobByID(otherBlobID).getContent(), StandardCharsets.UTF_8);;
         String newContent = "<<<<<<< HEAD\n" +
@@ -993,7 +1028,7 @@ public class Repository {
      * @param head
      * @param other
      */
-    private static Map<String, String> deleteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other) {
+    private Map<String, String> deleteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other) {
         Map<String, String> splitMap = split.getPathToBlobID();
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
@@ -1022,7 +1057,7 @@ public class Repository {
      * 7. unmodified in other but not present in head, (remain remove)
      */
 
-    private static List<String> generateAllFiles(Commit splitPoint, Commit newCommit, Commit mergeCommit) {
+    private List<String> generateAllFiles(Commit splitPoint, Commit newCommit, Commit mergeCommit) {
         List<String> allFiles = new ArrayList<>(splitPoint.getPathToBlobID().keySet());
         allFiles.addAll(newCommit.getPathToBlobID().keySet());
         allFiles.addAll(mergeCommit.getPathToBlobID().keySet());
@@ -1032,7 +1067,7 @@ public class Repository {
         return allFiles;
     }
 
-    public static void add_remote(String remoteName, String remoteAddress) {
+    public void add_remote(String remoteName, String remoteAddress) {
         checkIfRemoteExisted(remoteName);
         // TODO:check user info and server address valid
 
@@ -1048,7 +1083,7 @@ public class Repository {
         addConfig(remoteName, validAddress);
     }
 
-    public static void checkIfRemoteExisted(String remoteName) {
+    public void checkIfRemoteExisted(String remoteName) {
         /*
         File remoteDir = join(REMOTES_DIR, remoteName);
         if (remoteDir.isDirectory()) {
@@ -1066,14 +1101,14 @@ public class Repository {
         }
     }
 
-    public static void rm_remote(String remoteName) {
+    public void rm_remote(String remoteName) {
         checkIfRemoteNotExisted(remoteName);
         // TODO:check user info and server valid
 
         rmConfig(remoteName);
     }
 
-    public static void checkIfRemoteNotExisted(String remoteName) {
+    public void checkIfRemoteNotExisted(String remoteName) {
         /*
         File remoteDir = join(REMOTES_DIR, remoteName);
         if (!remoteDir.isDirectory()) {
