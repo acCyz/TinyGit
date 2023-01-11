@@ -1133,11 +1133,13 @@ public class Repository {
         // 如果本地不存在远程branch引用，则创建目录和branch
         // 并将本地记录的remote branch head与remote对应的branch head同步
         File branch = join(REMOTES_DIR, remoteName, remoteBranchName);
+        createIfDirNotExisted(branch);
         writeContents(branch, remote.readBranchHead(remoteBranchName));
 
         // 复制本地不包含的所有remote branch 的commit和blob对象到本地objects
         fetchRemoteBranch(remote, remoteBranchName);
     }
+
 
     private String readRemoteAddress(String remoteName) {
         String path = "";

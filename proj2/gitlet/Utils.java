@@ -318,11 +318,18 @@ class Utils {
         }
         copy = copy.getParentFile();
         *
-
         return absolutePath.replace(copy.getAbsolutePath(), "");
-
          */
         return file.getName();
+    }
+
+    static void createIfDirNotExisted(File file){
+        File fileParent = file.getParentFile();
+        if(!fileParent.exists()){
+            if (!fileParent.mkdirs()) {
+                throw new IllegalArgumentException(String.format("mkdir: %s: Failed to create.", fileParent.getPath()));
+            }
+        }
     }
 
 
