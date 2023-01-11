@@ -96,9 +96,9 @@ public class Repository {
         this.HEAD_FILE = join(GITLET_DIR, "HEAD");
     }
 
-    public void checkIfInitialized() {
+    public void checkIfInitialized(String errMessage) {
         if (!GITLET_DIR.isDirectory()) {
-            exit("Not in an initialized Gitlet directory.");
+            exit(errMessage);
         }
     }
 
@@ -180,7 +180,7 @@ public class Repository {
     }
 
     public void addBlob(File file, Blob blob){
-        String filePath = file.getPath();
+        String filePath = getRelativePath(file);
         String blobID = blob.getID();
         Stage addStage = loadAddStage();
         Stage removeStage = loadRemoveStage();
@@ -396,7 +396,7 @@ public class Repository {
 
     public void rm(String fileName) {
         File file = getFileFromCWD(fileName);
-        String filePath = file.getPath();
+        String filePath = getRelativePath(file);
         Stage addStage = loadAddStage();
         Commit curCommit = loadCurCommit();
 
@@ -408,7 +408,7 @@ public class Repository {
             // 如果文件被当前commit跟踪，则将其跟踪的filepath:boloID版本移入removestage
             // 并从CWD删除当前的文件
             Stage removeStage = loadRemoveStage();
-            String removeBlobID = getBlobIDFromCurCommit(curCommit, filePath);
+            String removeBlobID = curCommit.getBlobIDOf(filePath);
             removeStage.add(filePath, removeBlobID);
             removeStage.persist(REMOVESTAGE_FILE);
             // 删除失败会返回false
@@ -418,10 +418,11 @@ public class Repository {
         }
     }
 
-    private String getBlobIDFromCurCommit(Commit curCommit, String filePath){
-        return curCommit.getBlobIDOf(filePath);
+    private void printLog(List<String> logInfo){
+        for(String s : logInfo){
+            System.out.println(s);
+        }
     }
-
 
     public void log(){
         Commit curCommit = loadCurCommit();
@@ -432,12 +433,6 @@ public class Repository {
         }
         logInfo.addAll(generateCommitInfo(curCommit));
         printLog(logInfo);
-    }
-
-    private void printLog(List<String> logInfo){
-        for(String s : logInfo){
-            System.out.println(s);
-        }
     }
 
     private List<String> wrapInfo(String topBanner, List<String> info){
@@ -569,7 +564,7 @@ public class Repository {
             for (String filename : CWDFilenames) {
                 File file = getFileFromCWD(filename);
                 Blob curCWDBlob = new Blob(file);
-                CWDFilePathToBlobID.put(file.getPath(), curCWDBlob.getID());
+                CWDFilePathToBlobID.put(getRelativePath(file), curCWDBlob.getID());
             }
         }
         return CWDFilePathToBlobID;
@@ -659,7 +654,7 @@ public class Repository {
             File file = getFileFromCWD(fileName);
             checkIfCommitTrackedFile(commit, file);
 
-            String blobID = commit.getBlobIDOf(file.getPath());
+            String blobID = commit.getBlobIDOf(getRelativePath(file));
             Blob blob = loadBlobByID(blobID);
 
             // 这里会覆盖写吗?
@@ -669,7 +664,7 @@ public class Repository {
     }
 
     public void checkIfCommitTrackedFile(Commit commit, File file){
-        if (!commit.isTrackedFile(file.getPath())){
+        if (!commit.isTrackedFile(getRelativePath(file))){
             exit("File does not exist in that commit.");
         }
     }
@@ -706,7 +701,8 @@ public class Repository {
         Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
         for(String filePath : curCommitFilePathToBlobID.keySet()){
             if(!targetCommit.isTrackedFile(filePath)){
-                restrictedDelete(filePath);
+                File file = getFileFromCWD(filePath);
+                restrictedDelete(file);
             }
         }
     }
@@ -916,10 +912,6 @@ public class Repository {
         return map;
     }
 
-    public Commit mergeIntoNew(Commit split, Commit head, Commit other){
-        return null;
-    }
-
     private Map<String, String> mergeNewPathToBlob(Map<String, String> headFilePathToBlob,
                                                              Map<String, String> owFilePathToBlob,
                                                              Map<String, String> rmFilePathToBlob,
@@ -995,8 +987,6 @@ public class Repository {
 
                 conflictList.put(filePath, nb.getID());
             }
-
-
         }
         return conflictList;
     }
@@ -1035,7 +1025,8 @@ public class Repository {
             }
         }
         for(String filePath : removeList.keySet()){
-            restrictedDelete(filePath);
+            File file = getFileFromCWD(filePath);
+            restrictedDelete(file);
         }
 
         return removeList;
@@ -1048,7 +1039,6 @@ public class Repository {
      * 4. neither in split nor other but in head, write it
      * 7. unmodified in other but not present in head, (remain remove)
      */
-
     private List<String> generateAllFiles(Commit splitPoint, Commit newCommit, Commit mergeCommit) {
         List<String> allFiles = new ArrayList<>(splitPoint.getPathToBlobID().keySet());
         allFiles.addAll(newCommit.getPathToBlobID().keySet());
@@ -1122,12 +1112,18 @@ public class Repository {
     public void fetch(String remoteName, String remoteBranchName){
         checkIfRemoteNameExisted(remoteName);
         String remoteAddress = readRemoteAddress(remoteName);
-
         String remoteCWD = new File(remoteAddress).getParent();
-        Repository remote = new Repository(remoteCWD);
-        remote.checkIfInitialized();
 
+        Repository remote = new Repository(remoteCWD);
+        remote.checkIfInitialized("Remote directory not found.");
         remote.checkIfBranchNotExisted(remoteBranchName, "That remote does not have that branch.");
+
+        // 如果本地不存在远程branch引用，则创建目录和branch
+        // 并将本地记录的remote branch head与remote对应的branch head同步
+        File branch = join(REMOTES_DIR, remoteName, remoteBranchName);
+        writeContents(branch, remote.readBranchHead(remoteBranchName));
+
+        // 复制本地不包含的所有remote branch 的commit和blob对象到本地objects
 
 
     }
@@ -1144,6 +1140,82 @@ public class Repository {
             }
         }
         return path;
+    }
+
+    private List<String> getHistoryId(String headCommitID) {
+        Commit head = loadCommitByID(headCommitID);
+        List<String> res = new LinkedList<>();
+        Queue<Commit> queue = new LinkedList<>();
+        queue.add(head);
+        while (!queue.isEmpty()) {
+            Commit commit = queue.poll();
+            if (!res.contains(commit.getID()) && !commit.getParents().isEmpty()) {
+                for (String id : commit.getParents()) {
+                    queue.add(loadCommitByID(id));
+                }
+            }
+            res.add(commit.getID());
+        }
+        return res;
+    }
+
+    private void fetchObjectsFromRemote(Repository remote, String remoteBranchName) {
+        String remoteBranchHead = remote.readBranchHead(remoteBranchName);
+        Commit head = remote.loadCommitByID(remoteBranchHead);
+        Queue<Commit> queue = new LinkedList<>();
+        queue.add(head);
+        while (!queue.isEmpty()) {
+            Commit commit = queue.poll();
+
+            if (!commit.isNoParent()) {
+                for (String commitID : commit.getParents()) {
+                    queue.add(remote.loadCommitByID(commitID));
+                }
+            }
+
+        }
+
+
+
+
+    }
+
+    private void copyCommitAndBlobs(Repository remote, Commit remoteCommit){
+        File commitFile = join(OBJECTS_DIR, remoteCommit.getID());
+        if (commitFile.exists()) {
+            return;
+        }
+        // TODO: commit里的索引需要改成相对路径，而不是绝对路径
+        // copy remote commit
+        writeObject(commitFile, remoteCommit);
+
+        // now its tracked blobs
+        for (Map.Entry<String, String> entry : remoteCommit.getPathToBlobID().entrySet()) {
+            String blobId = entry.getValue();
+            Blob blob = remote.loadBlobByID(blobId);
+
+            File blobFile = join(OBJECTS_DIR, blobId);
+            writeObject(blobFile, blob);
+        }
+    }
+
+    private void fetchObjectsFromRemote_(Repository remote, List<String> history) {
+        for (String commitId : history) {
+            Commit commit = remote.loadCommitByID(commitId);
+            File commitFile = join(OBJECTS_DIR, commit.getID());
+            if (commitFile.exists()) {
+                continue;
+            }
+            writeObject(commitFile, commit);
+
+            for (Map.Entry<String, String> entry : commit.getPathToBlobID().entrySet()) {
+                String blobId = entry.getValue();
+                Blob blob = remote.loadBlobByID(blobId);
+
+                File blobFile = join(OBJECTS_DIR, blobId);
+                writeObject(blobFile, blob);
+            }
+        }
     }
 
 

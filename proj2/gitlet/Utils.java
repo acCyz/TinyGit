@@ -302,4 +302,22 @@ class Utils {
     }
 
 
+
+    // TODO: support subDirs
+    /**
+     * return a
+     * @param file File
+     * @return String filename
+     */
+    static String getRelativePath(File file){
+        String absolutePath = file.getAbsolutePath();
+        File copy = new File(absolutePath);
+        while(!(new File(copy.getParentFile(), ".gitlet")).isDirectory()){
+            copy = copy.getParentFile();
+        }
+        copy = copy.getParentFile();
+        return absolutePath.replace(copy.getAbsolutePath(), "");
+    }
+
+
 }

@@ -22,7 +22,7 @@ public class Main {
             checkArgsValid(args, 1);
             repo.init();
         }else{
-            repo.checkIfInitialized();
+            repo.checkIfInitialized("Not in an initialized Gitlet directory.");
             switch(firstArg) {
                 case "add":
                     checkArgsValid(args, 2);
