@@ -832,9 +832,12 @@ public class Repository {
         String message = "Merged " + otherBranchName + " into " + readCurBranchName() + ".";
         Map<String, String> newFilePathToBlob = mergeNewPathToBlob(headCommit.getPathToBlobID(), owFilePathToBlob, rmFilePathToBlob, cfFilePathToBlob);
 
-        List<String> newParents = new ArrayList<String>();
-        newParents.add(headCommit.getID());
-        newParents.add(otherCommit.getID());
+        List<String> newParents = new ArrayList<String>(){{
+            add(headCommit.getID());
+            add(otherCommit.getID());
+        }};
+        //newParents.add(headCommit.getID());
+        //newParents.add(otherCommit.getID());
 
         //Commit newCommit = new Commit();\
         //newParents = new ArrayList<>();
