@@ -831,14 +831,14 @@ public class Repository {
 
         String message = "Merged " + otherBranchName + " into " + readCurBranchName() + ".";
         Map<String, String> newFilePathToBlob = mergeNewPathToBlob(headCommit.getPathToBlobID(), owFilePathToBlob, rmFilePathToBlob, cfFilePathToBlob);
-        List<String> newParents = new ArrayList<String>(){{
-            add(headCommit.getID());
-            add(otherCommit.getID());
-        }};
+
+        List<String> newParents = new ArrayList<String>();
+        newParents.add(headCommit.getID());
+        newParents.add(otherCommit.getID());
 
         //Commit newCommit = new Commit();\
         //newParents = new ArrayList<>();
-        exit(newParents.get(0) + " // " + newParents.get(1));
+        //exit(newParents.get(0) + " // " + newParents.get(1));
         Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
         // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
@@ -1010,8 +1010,7 @@ public class Repository {
                 "=======\n" +
                 otherContent +
                 ">>>>>>>\n";
-        Blob cb = new Blob(newContent.getBytes(StandardCharsets.UTF_8));
-        return cb;
+        return new Blob(newContent.getBytes(StandardCharsets.UTF_8));
     }
 
 
