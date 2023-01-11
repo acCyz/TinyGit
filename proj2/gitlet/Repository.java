@@ -837,7 +837,7 @@ public class Repository {
         }};
 
         //Commit newCommit = new Commit();\
-        message = "ssssss";
+        newParents = new ArrayList<>();
         Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
         // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
