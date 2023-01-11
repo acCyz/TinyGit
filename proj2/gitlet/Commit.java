@@ -74,9 +74,9 @@ public class Commit implements Serializable {
         return parents;
     }
 
-    /** 检查给定的文件，是否会被当前commit中的同名文件覆盖 */
+    /** 检查给定的文件，是否会被当前commit中的同名文件覆盖, 或者删除 */
     public boolean willOverwrite(String filePath, String blobID){
-        return isTrackedFile(filePath) && !isTrackedSameBlob(filePath, blobID);
+        return isTrackedFile(filePath) && !isTrackedSameBlob(filePath, blobID) || !isTrackedFile(filePath);
     }
 
     /** 检查该commit跟踪的了相同的文件版本 */
