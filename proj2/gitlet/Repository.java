@@ -838,7 +838,7 @@ public class Repository {
 
         //Commit newCommit = new Commit();\
         //newParents = new ArrayList<>();
-        newFilePathToBlob = new TreeMap<>();
+        exit(newParents.get(0) + " // " + newParents.get(1));
         Commit newCommit = new Commit(message, newFilePathToBlob, newParents);
         // 保存commit对象
         newCommit.persist(OBJECTS_DIR);
