@@ -1122,7 +1122,7 @@ public class Repository {
     }
 
     public void fetch(String remoteName, String remoteBranchName){
-        checkIfRemoteNameExisted(remoteName);
+        checkIfRemoteNameNotExisted(remoteName);
         String remoteAddress = readRemoteAddress(remoteName);
         String remoteCWD = new File(remoteAddress).getParent();
 
