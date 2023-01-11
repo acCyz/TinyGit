@@ -306,7 +306,13 @@ public class Repository {
     }
 
     public String readBranchHead(String branchName) {
-        File headsFile = join(HEADS_DIR, branchName);
+        File headsFile = null;
+        String[] branches = branchName.split(File.separator);
+        if (branches.length == 1) {
+            headsFile = join(HEADS_DIR, branchName);
+        } else if (branches.length == 2) {
+            headsFile = join(REMOTES_DIR, branches[0], branches[1]);
+        }
         return readContentsAsString(headsFile);
     }
 
@@ -766,8 +772,14 @@ public class Repository {
     }
 
     private boolean isBranchExisted(String branchName){
-        List<String> allBranches = plainFilenamesIn(HEADS_DIR);
-        return allBranches != null && allBranches.contains(branchName);
+        File file = null;
+        String[] branches = branchName.split(File.separator);
+        if (branches.length == 1) {
+            file = join(HEADS_DIR, branchName);
+        } else if (branches.length == 2) {
+            file = join(REMOTES_DIR, branches[0], branches[1]);
+        }
+        return file != null && file.exists();
     }
 
 
@@ -1124,8 +1136,7 @@ public class Repository {
         writeContents(branch, remote.readBranchHead(remoteBranchName));
 
         // 复制本地不包含的所有remote branch 的commit和blob对象到本地objects
-
-
+        fetchRemoteBranch(remote, remoteBranchName);
     }
 
     private String readRemoteAddress(String remoteName) {
@@ -1142,42 +1153,20 @@ public class Repository {
         return path;
     }
 
-    private List<String> getHistoryId(String headCommitID) {
-        Commit head = loadCommitByID(headCommitID);
-        List<String> res = new LinkedList<>();
-        Queue<Commit> queue = new LinkedList<>();
-        queue.add(head);
-        while (!queue.isEmpty()) {
-            Commit commit = queue.poll();
-            if (!res.contains(commit.getID()) && !commit.getParents().isEmpty()) {
-                for (String id : commit.getParents()) {
-                    queue.add(loadCommitByID(id));
-                }
-            }
-            res.add(commit.getID());
-        }
-        return res;
-    }
-
-    private void fetchObjectsFromRemote(Repository remote, String remoteBranchName) {
+    private void fetchRemoteBranch(Repository remote, String remoteBranchName) {
         String remoteBranchHead = remote.readBranchHead(remoteBranchName);
         Commit head = remote.loadCommitByID(remoteBranchHead);
         Queue<Commit> queue = new LinkedList<>();
         queue.add(head);
         while (!queue.isEmpty()) {
             Commit commit = queue.poll();
-
+            copyCommitAndBlobs(remote, commit);
             if (!commit.isNoParent()) {
                 for (String commitID : commit.getParents()) {
                     queue.add(remote.loadCommitByID(commitID));
                 }
             }
-
         }
-
-
-
-
     }
 
     private void copyCommitAndBlobs(Repository remote, Commit remoteCommit){
@@ -1185,7 +1174,6 @@ public class Repository {
         if (commitFile.exists()) {
             return;
         }
-        // TODO: commit里的索引需要改成相对路径，而不是绝对路径
         // copy remote commit
         writeObject(commitFile, remoteCommit);
 
@@ -1199,23 +1187,11 @@ public class Repository {
         }
     }
 
-    private void fetchObjectsFromRemote_(Repository remote, List<String> history) {
-        for (String commitId : history) {
-            Commit commit = remote.loadCommitByID(commitId);
-            File commitFile = join(OBJECTS_DIR, commit.getID());
-            if (commitFile.exists()) {
-                continue;
-            }
-            writeObject(commitFile, commit);
+    public void pull(String remoteName, String remoteBranchName) {
+        fetch(remoteName, remoteBranchName);
 
-            for (Map.Entry<String, String> entry : commit.getPathToBlobID().entrySet()) {
-                String blobId = entry.getValue();
-                Blob blob = remote.loadBlobByID(blobId);
-
-                File blobFile = join(OBJECTS_DIR, blobId);
-                writeObject(blobFile, blob);
-            }
-        }
+        String otherBranchName = remoteName + "/" + remoteBranchName;
+        merge(otherBranchName);
     }
 
 
