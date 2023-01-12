@@ -9,7 +9,6 @@ public class Blob implements Serializable {
     private final String id;
     private final byte[] content;
 
-    /** TODO: blob里不存放文件名和路径, 包括计算hash时也不用文件名和路径 */
     public Blob(File file) {
         //this.filePath = file.getName();
         this.content = generateContent(file);
@@ -36,8 +35,8 @@ public class Blob implements Serializable {
         return this.content;
     }
 
-    public void persist(File BLOB_DIR) {
-        File file = join(BLOB_DIR, this.getID()); // now, without Tries firstly...
+    public void persist(File blobDir) {
+        File file = join(blobDir, this.getID());
         writeObject(file, this);
     }
 }

@@ -1,18 +1,16 @@
 package gitlet;
 
-// TODO: any imports you need here
-
 import java.io.File;
 import java.io.Serializable;
 import java.util.*;
-import java.util.Date; // TODO: You'll likely use this in this class
+import java.util.Date;
 import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
- *  TODO: It's a good idea to give a description here of what else this Class
+ *
  *  does at a high level.
  *
- *  @author TODO
+ *  @author cyz
  */
 public class Commit implements Serializable {
 
@@ -46,7 +44,10 @@ public class Commit implements Serializable {
     }
 
     private String generateSha1ID() {
-        return sha1(this.message,this.timeStamp,this.parents.toString(),this.pathToBlobID.toString());
+        return sha1(this.message,
+                    this.timeStamp,
+                    this.parents.toString(),
+                    this.pathToBlobID.toString());
     }
 
     public String getID() {
@@ -91,7 +92,6 @@ public class Commit implements Serializable {
 
     public List<String> getInfo() {
         ArrayList<String> info = new ArrayList<>();
-        //info.add("===");  // had been wrapped in outside
         info.add("commit " + this.id);
         if (parents.size() > 1) {
             StringBuilder pString = new StringBuilder("");
@@ -102,13 +102,12 @@ public class Commit implements Serializable {
         }
         info.add("Date: " + this.timeStamp);
         info.add(this.message);
-        //info.add(" ");
         return info;
     }
 
 
     public void persist(File commitDir) {
-        // TODO:真正的git是将id的前2位作为子目录名，后38位作为2位目录下的文件名
+        // 真正的git是将id的前2位作为子目录名，后38位作为2位目录下的文件名
         File file = join(commitDir, this.getID()); // now, without Tries firstly...
         writeObject(file, this);
     }

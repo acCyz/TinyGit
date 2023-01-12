@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.*;
 
-import static gitlet.Utils.join;
 import static gitlet.Utils.writeObject;
 
 public class Stage implements Serializable {
@@ -47,7 +46,7 @@ public class Stage implements Serializable {
     public List<String> getIndexedFileNames() {
         List<String> indexedFileNames = new ArrayList<>();
         for (String filePath : index.keySet()) {
-            indexedFileNames.add(filePath.substring(filePath.lastIndexOf(File.separator)+1));
+            indexedFileNames.add(filePath.substring(filePath.lastIndexOf(File.separator) + 1));
         }
         return indexedFileNames;
     }
@@ -55,8 +54,8 @@ public class Stage implements Serializable {
         return index.containsKey(filePath);
     }
 
-    public void persist(File STAGE_FILE) {
-        writeObject(STAGE_FILE, this);
+    public void persist(File stageFile) {
+        writeObject(stageFile, this);
     }
 
 
