@@ -7,52 +7,51 @@ import java.util.*;
 import static gitlet.Utils.join;
 import static gitlet.Utils.writeObject;
 
-public class Stage implements Serializable{
+public class Stage implements Serializable {
     /** filepath : blobID */
-    // TODO: 合并addstage和removestage
     private final Map<String, String> index;
 
-    public Stage(){
+    public Stage() {
         index = new TreeMap<>();
     }
 
-    public void replace(String filePath, String blobID){
+    public void replace(String filePath, String blobID) {
         index.replace(filePath, blobID);
     }
 
-    public void add(String filePath, String blobID){
+    public void add(String filePath, String blobID) {
         index.put(filePath, blobID);
     }
 
-    /** remove key:value and return null if not exsited */
-    public void delete(String filePath){
+    /** remove key:value and return null if not existed */
+    public void delete(String filePath) {
         index.remove(filePath);
     }
 
-    public void update(String filePath, String blobID){
+    public void update(String filePath, String blobID) {
         index.put(filePath, blobID);
     }
 
-    public void clear(){
+    public void clear() {
         index.clear();
     }
 
-    public boolean isEmpty(){
+    public boolean isEmpty() {
         return index.isEmpty();
     }
 
-    public Map<String, String> getIndex(){
+    public Map<String, String> getIndex() {
         return this.index;
     }
 
-    public List<String> getIndexedFileNames(){
+    public List<String> getIndexedFileNames() {
         List<String> indexedFileNames = new ArrayList<>();
-        for(String filePath : index.keySet()){
+        for (String filePath : index.keySet()) {
             indexedFileNames.add(filePath.substring(filePath.lastIndexOf(File.separator)+1));
         }
         return indexedFileNames;
     }
-    public boolean isIndexedFile(String filePath){
+    public boolean isIndexedFile(String filePath) {
         return index.containsKey(filePath);
     }
 

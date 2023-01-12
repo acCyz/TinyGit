@@ -309,7 +309,7 @@ class Utils {
      * @param file File
      * @return String filename
      */
-    static String getRelativePath(File file){
+    static String getRelativePath(File file) {
         /*
         String absolutePath = file.getAbsolutePath();
         File copy = new File(absolutePath);
@@ -323,9 +323,9 @@ class Utils {
         return file.getName();
     }
 
-    static void createIfDirNotExisted(File file){
+    static void createIfDirNotExisted(File file) {
         File fileParent = file.getParentFile();
-        if(!fileParent.exists()){
+        if (!fileParent.exists()) {
             if (!fileParent.mkdirs()) {
                 throw new IllegalArgumentException(String.format("mkdir: %s: Failed to create.", fileParent.getPath()));
             }

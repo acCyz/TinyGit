@@ -96,7 +96,7 @@ public class Repository {
 
     /** Command init 初始化仓库 */
     public void init() {
-        if (GITLET_DIR.exists() && GITLET_DIR.isDirectory()){
+        if (GITLET_DIR.exists() && GITLET_DIR.isDirectory()) {
             exit("A Gitlet version-control system already exists in the current directory.");
         }
         // 创建目录
