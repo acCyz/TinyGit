@@ -18,10 +18,10 @@ public class Main {
         Repository repo = new Repository();
         String firstArg = args[0];
 
-        if(firstArg.equals("init")) {
+        if (firstArg.equals("init")) {
             checkArgsValid(args, 1);
             repo.init();
-        }else{
+        } else {
             repo.checkIfInitialized("Not in an initialized Gitlet directory.");
             switch(firstArg) {
                 case "add":

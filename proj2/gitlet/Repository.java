@@ -1,6 +1,4 @@
 package gitlet;
-
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,20 +7,14 @@ import java.util.*;
 
 import static gitlet.Utils.*;
 
-// TODO: any imports you need here
 
 /** Represents a gitlet repository.
  *  TODO: It's a good idea to give a description here of what else this Class
  *  does at a high level.
  *
- *  @author TODO
+ *  @author cyz
  */
 public class Repository {
-    /** TODO: add instance variables here.
-     * List all instance variables of the Repository class here with a useful
-     * comment above them describing what that variable represents and how that
-     * variable is used. We've provided two examples for you.
-     */
 
     /** The current working directory. */
     private static final String DEFAULT_BRANCH_NAME = "master";
@@ -58,11 +50,11 @@ public class Repository {
     /** TODO:维护curCommit、stage等变量，在Repository类初始化时，自动加载
      * 从而可以方便的进行操作、清空和持久化
      */
-    public Repository(){
+    public Repository() {
         CWD = new File(System.getProperty("user.dir"));
         setDirs();
     }
-    public Repository(String cwd){
+    public Repository(String cwd) {
         CWD = new File(cwd);
         setDirs();
     }
@@ -84,7 +76,7 @@ public class Repository {
      *      |--FETCH_HEAD (latest commitID of fetched remote branches)
      *      |--ORIG_HEAD (the LCA commitID of HEAD and remote)
      */
-    private void setDirs(){
+    private void setDirs() {
         this.GITLET_DIR = join(CWD, ".gitlet");
         this.OBJECTS_DIR = join(GITLET_DIR, "objects");
         this.REFS_DIR = join(GITLET_DIR, "refs");
@@ -103,7 +95,7 @@ public class Repository {
     }
 
     /** Command init 初始化仓库 */
-    public void init(){
+    public void init() {
         if (GITLET_DIR.exists() && GITLET_DIR.isDirectory()){
             exit("A Gitlet version-control system already exists in the current directory.");
         }
@@ -134,7 +126,7 @@ public class Repository {
         }
     }
 
-    private void initCommitAndHeads(){
+    private void initCommitAndHeads() {
         Commit initCommit = new Commit();
         initCommit.persist(OBJECTS_DIR);
 
@@ -142,7 +134,7 @@ public class Repository {
     }
 
     /** set branch and its head, if branch not existed, created it */
-    private void setOrCreateBranch(String branchName, String commitID){
+    private void setOrCreateBranch(String branchName, String commitID) {
         File HEADS_FILE = join(HEADS_DIR, branchName);
         writeContents(HEADS_FILE, commitID);
     }
@@ -152,10 +144,10 @@ public class Repository {
         deleteGitLetFile(branchHead);
     }
 
-    private void initHEAD(){
+    private void initHEAD() {
         writeContents(HEAD_FILE, DEFAULT_BRANCH_NAME);
     }
-    private void initConfig(){
+    private void initConfig() {
         writeContents(CONFIG_FILE, "");
     }
 
@@ -179,7 +171,7 @@ public class Repository {
                 : join(CWD, fileName);
     }
 
-    public void addBlob(File file, Blob blob){
+    public void addBlob(File file, Blob blob) {
         String filePath = getRelativePath(file);
         String blobID = blob.getID();
         Stage addStage = loadAddStage();
@@ -189,12 +181,12 @@ public class Repository {
         // 如果该blobid和当前commit跟踪的blobid一模一样（即工作区的该文件相对于最近commit没更改任何内容），
         // 则不添加进addstage以免重复commit该文件
         // 同时如果stage里有它，则将其移出stage
-        if(curCommit.isTrackedSameBlob(filePath, blobID)){
+        if (curCommit.isTrackedSameBlob(filePath, blobID)) {
             // TODO: 优化代码逻辑
             // return null if filePath not existed
             addStage.delete(filePath);
             removeStage.delete(filePath);
-        }else{
+        } else {
             // 走到这里说明当前blob没有被commit
             // 那么，如果blob的文件名和addstage里某个blob一样，则覆盖它的索引，否则直接新建添加进去
             // （例如先修改文件，add，再修改同一文件，再add，此时应该只暂存第二版，并且会产生一个不可达的blob对象）
@@ -235,14 +227,14 @@ public class Repository {
         writeContents(CONFIG_FILE, contents);
     }
 
-    private Stage loadAddStage(){
+    private Stage loadAddStage() {
         if (!ADDSTAGE_FILE.exists()) {
             return new Stage();
         }
         return readObject(ADDSTAGE_FILE, Stage.class);
     }
 
-    private Stage loadRemoveStage(){
+    private Stage loadRemoveStage() {
         if (!REMOVESTAGE_FILE.exists()) {
             return new Stage();
         }
@@ -255,7 +247,7 @@ public class Repository {
         return readObject(curCommitFile, Commit.class);
     }
 
-    private Commit loadCommitByID(String commitID){
+    private Commit loadCommitByID(String commitID) {
         if (commitID.length() == 40) {
             File curCommitFile = join(OBJECTS_DIR, commitID);
             if (!curCommitFile.exists()) {
@@ -321,13 +313,13 @@ public class Repository {
         setOrCreateBranch(curBranchName, commitID);
     }
 
-    public void setBranchTo(String targetBranchName){
+    public void setBranchTo(String targetBranchName) {
         writeContents(HEAD_FILE, targetBranchName);
     }
 
     public void commit(String message) {
         // 检查message是否非空
-        if(message.length() == 0){
+        if (message.length() == 0) {
             exit("Please enter a commit message.");
         }
 
@@ -355,43 +347,43 @@ public class Repository {
         persistStage(addStage, removeStage);
     }
 
-    private void checkIfStageChanged(Stage addStage, Stage removeStage){
+    private void checkIfStageChanged(Stage addStage, Stage removeStage) {
         if(addStage.isEmpty() && removeStage.isEmpty()){
             exit("No changes added to the commit.");
         }
     }
 
-    private Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage){
+    private Commit generateNewCommit(String message, Commit preCommit, Stage addStage, Stage removeStage) {
         Map<String, String> newPathToBlob = generateNewPathToBlob(addStage, removeStage, preCommit.getPathToBlobID());
         List<String> newParents = generateNewParents(preCommit);
         return new Commit(message, newPathToBlob, newParents);
     }
 
-    private Map<String, String> generateNewPathToBlob(Stage addStage, Stage removeStage, Map<String, String> pathToBlob){
+    private Map<String, String> generateNewPathToBlob(Stage addStage, Stage removeStage, Map<String, String> pathToBlob) {
         Map<String, String> addIndex = addStage.getIndex();
         Map<String, String> removeIndex = removeStage.getIndex();
         // TODO:这里并没有深拷贝一份pathToBlob，而是直接改
-        for(String filePath : addIndex.keySet()){
+        for (String filePath : addIndex.keySet()) {
             pathToBlob.put(filePath, addIndex.get(filePath));
         }
-        for(String filePath : removeIndex.keySet()){
+        for (String filePath : removeIndex.keySet()) {
             pathToBlob.remove(filePath);
         }
         return pathToBlob;
     }
 
-    private List<String> generateNewParents(Commit preCommit){
+    private List<String> generateNewParents(Commit preCommit) {
         List<String> newParents = new ArrayList<>();
         newParents.add(preCommit.getID());
         return newParents;
     }
 
-    private void clearStage(Stage addStage, Stage removeStage){
+    private void clearStage(Stage addStage, Stage removeStage) {
         addStage.clear();
         removeStage.clear();
     }
 
-    private void persistStage(Stage addStage, Stage removeStage){
+    private void persistStage(Stage addStage, Stage removeStage) {
         addStage.persist(ADDSTAGE_FILE);
         removeStage.persist(REMOVESTAGE_FILE);
     }
@@ -403,10 +395,10 @@ public class Repository {
         Commit curCommit = loadCurCommit();
 
         // 如果添加到了暂存区，则从当前暂存区删除
-        if(addStage.isIndexedFile(filePath)){
+        if (addStage.isIndexedFile(filePath)) {
             addStage.delete(filePath);
             addStage.persist(ADDSTAGE_FILE);
-        }else if(curCommit.isTrackedFile(filePath)){
+        } else if (curCommit.isTrackedFile(filePath)) {
             // 如果文件被当前commit跟踪，则将其跟踪的filepath:boloID版本移入removestage
             // 并从CWD删除当前的文件
             Stage removeStage = loadRemoveStage();
@@ -415,21 +407,21 @@ public class Repository {
             removeStage.persist(REMOVESTAGE_FILE);
             // 删除失败会返回false
             restrictedDelete(file);
-        }else{
+        } else {
             exit("No reason to remove the file.");
         }
     }
 
-    private void printLog(List<String> logInfo){
-        for(String s : logInfo){
+    private void printLog(List<String> logInfo) {
+        for (String s : logInfo) {
             System.out.println(s);
         }
     }
 
-    public void log(){
+    public void log() {
         Commit curCommit = loadCurCommit();
         List<String> logInfo = new ArrayList<>();
-        while(!isInitCommit(curCommit)){
+        while(!isInitCommit(curCommit)) {
             logInfo.addAll(generateCommitInfo(curCommit));
             curCommit = getFirstParentCommit(curCommit);
         }
@@ -437,29 +429,29 @@ public class Repository {
         printLog(logInfo);
     }
 
-    private List<String> wrapInfo(String topBanner, List<String> info){
+    private List<String> wrapInfo(String topBanner, List<String> info) {
         info.add(0, topBanner);
         info.add(" ");
         return info;
     }
 
-    private List<String> generateCommitInfo(Commit curCommit){
+    private List<String> generateCommitInfo(Commit curCommit) {
         return wrapInfo("===", curCommit.getInfo());
     }
 
-    private boolean isInitCommit(Commit commit){
+    private boolean isInitCommit(Commit commit) {
         // TODO:如果允许分离HEAD，则通过父引用为空的判断是否还有效？
         return commit.isNoParent();
     }
 
-    private Commit getFirstParentCommit(Commit curCommit){
+    private Commit getFirstParentCommit(Commit curCommit) {
         // TODO:目前是选择第一个父亲（也即当初合并的base分支）进行回溯，
         // 后续可能需要添加额外命令参数支持整个树的回溯
         String firstParentID = curCommit.getParents().get(0);
         return loadCommitByID(firstParentID);
     }
 
-    public void global_log(){
+    public void global_log() {
         List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
         if (commitList == null) {
             return;
@@ -476,28 +468,28 @@ public class Repository {
         printLog(logInfo);
     }
 
-    public void find(String message){
+    public void find(String message) {
         List<String> commitList = plainFilenamesIn(OBJECTS_DIR);
         if(commitList == null) return;
         List<String> logInfo = new ArrayList<>();
         for (String id : commitList) {
             try{
                 Commit commit = readObject(join(OBJECTS_DIR, id), Commit.class);
-                if(commit.getMessage().contains(message)){
+                if (commit.getMessage().contains(message)) {
                     logInfo.add(commit.getID());
                 }
-            }catch (Exception ignored){
+            }catch (Exception ignored) {
             }
         }
 
-        if(logInfo.size() == 0){
+        if (logInfo.size() == 0) {
             exit("Found no commit with that message.");
-        }else{
+        } else {
             printLog(logInfo);
         }
     }
 
-    public void status(){
+    public void status() {
         List<String> logInfo = new ArrayList<>();
         logInfo.addAll(listBranches());
         logInfo.addAll(listStages());
@@ -505,14 +497,14 @@ public class Repository {
         printLog(logInfo);
     }
 
-    private List<String> listBranches(){
+    private List<String> listBranches() {
         List<String> info = new ArrayList<>();
         String curBranch = readCurBranchName();
         info.add("*" + curBranch);
         List<String> branchList = plainFilenamesIn(HEADS_DIR);
-        if(branchList != null){
-            for(String branch : branchList){
-                if(!branch.equals(curBranch)){
+        if (branchList != null) {
+            for (String branch : branchList) {
+                if (!branch.equals(curBranch)) {
                     info.add(branch);
                 }
             }
@@ -521,17 +513,17 @@ public class Repository {
         return info;
     }
 
-    private List<String> listStages(){
+    private List<String> listStages() {
         List<String> addInfo = new ArrayList<>();
         Stage addStage = loadAddStage();
-        if(!addStage.isEmpty()){
+        if (!addStage.isEmpty()) {
             addInfo.addAll(addStage.getIndexedFileNames());
         }
         wrapInfo("=== Staged Files ===", addInfo);
 
         List<String> rmInfo = new ArrayList<>();
         Stage removeStage = loadRemoveStage();
-        if(!removeStage.isEmpty()){
+        if (!removeStage.isEmpty()) {
             rmInfo.addAll(removeStage.getIndexedFileNames());
         }
         wrapInfo("=== Removed Files ===", rmInfo);
@@ -541,7 +533,7 @@ public class Repository {
         return addInfo;
     }
 
-    private List<String> listUnStagedModificationsAndUntracked(){
+    private List<String> listUnStagedModificationsAndUntracked() {
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
         Map<String, String> commitFilePathToBlobID = loadCurCommit().getPathToBlobID();
         Map<String, String> addStageIndex = loadAddStage().getIndex();
@@ -559,10 +551,10 @@ public class Repository {
         return info1;
     }
 
-    private Map<String, String> getCWDFilePathToBlobID(){
+    private Map<String, String> getCWDFilePathToBlobID() {
         Map<String, String> CWDFilePathToBlobID = new TreeMap<>();
         List<String> CWDFilenames = plainFilenamesIn(CWD);
-        if(CWDFilenames != null) {
+        if (CWDFilenames != null) {
             for (String filename : CWDFilenames) {
                 File file = getFileFromCWD(filename);
                 Blob curCWDBlob = new Blob(file);
@@ -582,10 +574,10 @@ public class Repository {
     public List<String> listUnStagedModifications(Map<String, String> CWDFilePathToBlobID,
                                                          Map<String, String> commitFilePathToBlobID ,
                                                          Map<String, String> addStageIndex ,
-                                                         Map<String, String> removeStageIndex ){
+                                                         Map<String, String> removeStageIndex ) {
         List<String> info = new ArrayList<>();
 
-        for(String trackedFilePath : commitFilePathToBlobID.keySet()){
+        for (String trackedFilePath : commitFilePathToBlobID.keySet()) {
             String trackedBlobID = commitFilePathToBlobID.get(trackedFilePath);
             String CWDBlobID = CWDFilePathToBlobID.get(trackedFilePath);
             String addStageBlobID = addStageIndex.get(trackedFilePath);
@@ -593,24 +585,24 @@ public class Repository {
 
             String trackedFileName = trackedFilePath.substring(trackedFilePath.lastIndexOf(File.separator)+1);
             // 1.
-            if(CWDBlobID != null && !CWDBlobID.equals(trackedBlobID) && addStageBlobID == null){
+            if (CWDBlobID != null && !CWDBlobID.equals(trackedBlobID) && addStageBlobID == null) {
                 info.add(trackedFileName + " (modified)");
             }
             // 4.
-            if(rmStageBlobID == null && CWDBlobID == null ){
+            if (rmStageBlobID == null && CWDBlobID == null) {
                 info.add(trackedFileName + " (deleted)");
             }
         }
 
-        for(String addStagedFilePath : addStageIndex.keySet()){
+        for (String addStagedFilePath : addStageIndex.keySet()) {
             String addStagedBlobID = addStageIndex.get(addStagedFilePath);
             String CWDBlobID = CWDFilePathToBlobID.get(addStagedFilePath);
 
             String addStagedFileName = addStagedFilePath.substring(addStagedFilePath.lastIndexOf(File.separator)+1);
             // 3. 2.
-            if(CWDBlobID == null ){
+            if (CWDBlobID == null ) {
                 info.add(addStagedFileName + " (deleted)");
-            }else if(!addStagedBlobID.equals(CWDBlobID)){
+            } else if (!addStagedBlobID.equals(CWDBlobID)) {
                 info.add(addStagedFileName + " (modified)");
             }
         }
@@ -627,12 +619,12 @@ public class Repository {
     private List<String> listUntracked(Map<String, String> CWDFilePathToBlobID,
                                               Map<String, String> commitFilePathToBlobID ,
                                               Map<String, String> addStageIndex ,
-                                              Map<String, String> removeStageIndex ){
+                                              Map<String, String> removeStageIndex ) {
         List<String> info = new ArrayList<>();
 
-        for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
-            if(!addStageIndex.containsKey(CWDFilePath) && !commitFilePathToBlobID.containsKey(CWDFilePath)
-                    || removeStageIndex.containsKey(CWDFilePath)){
+        for (String CWDFilePath : CWDFilePathToBlobID.keySet()) {
+            if (!addStageIndex.containsKey(CWDFilePath) && !commitFilePathToBlobID.containsKey(CWDFilePath)
+                    || removeStageIndex.containsKey(CWDFilePath)) {
                 String CWDFileName = CWDFilePath.substring(CWDFilePath.lastIndexOf(File.separator)+1);
                 info.add(CWDFileName);
             }
@@ -642,17 +634,17 @@ public class Repository {
     }
 
     // checkout overload1
-    public void checkout(String fileName){
+    public void checkout(String fileName) {
         String curCommitID = readCurCommitID();
         checkout(curCommitID, fileName);
     }
 
     // checkout overload2
-    public void checkout(String commitID, String fileName){
+    public void checkout(String commitID, String fileName) {
         Commit commit = loadCommitByID(commitID);
-        if(commit == null) {
+        if (commit == null) {
             exit("No commit with that id exists.");
-        }else{
+        } else {
             File file = getFileFromCWD(fileName);
             checkIfCommitTrackedFile(commit, file);
 
@@ -665,14 +657,14 @@ public class Repository {
         }
     }
 
-    public void checkIfCommitTrackedFile(Commit commit, File file){
-        if (!commit.isTrackedFile(getRelativePath(file))){
+    public void checkIfCommitTrackedFile(Commit commit, File file) {
+        if (!commit.isTrackedFile(getRelativePath(file))) {
             exit("File does not exist in that commit.");
         }
     }
 
     // checkout 3
-    public void checkoutBranch(String targetBranchName){
+    public void checkoutBranch(String targetBranchName) {
         checkIfBranchNotExisted(targetBranchName, "No such branch exists.");
         checkIfIsCurBranch(targetBranchName, "No need to checkout the current branch.");
 
@@ -687,7 +679,7 @@ public class Repository {
         setBranchTo(targetBranchName);
     }
 
-    private void changeCWDAndClearStageTo(Commit targetCommit){
+    private void changeCWDAndClearStageTo(Commit targetCommit) {
         // deleted files that commit tracked but targetCommit untracked
         deleteTargetCommitUntrackedCWDFiles(targetCommit);
 
@@ -698,11 +690,11 @@ public class Repository {
         clearStageAndPersist();
     }
 
-    private void deleteTargetCommitUntrackedCWDFiles(Commit targetCommit){
+    private void deleteTargetCommitUntrackedCWDFiles(Commit targetCommit) {
         Commit curCommit = loadCurCommit();
         Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
-        for(String filePath : curCommitFilePathToBlobID.keySet()){
-            if(!targetCommit.isTrackedFile(filePath)){
+        for (String filePath : curCommitFilePathToBlobID.keySet()) {
+            if (!targetCommit.isTrackedFile(filePath)) {
                 File file = getFileFromCWD(filePath);
                 restrictedDelete(file);
             }
@@ -710,19 +702,21 @@ public class Repository {
     }
 
     // TODO:用map交集操作来寻找两个commit共同追踪的部分
-    private void overwriteCWDFilesWith(Commit targetCommit){
+    private void overwriteCWDFilesWith(Commit targetCommit) {
         Commit curCommit = loadCurCommit();
         Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
-        for(String targetFilePath : targetCommitFilePathToBlobID.keySet()){
+        for (String targetFilePath : targetCommitFilePathToBlobID.keySet()) {
             String targetBlobID = targetCommit.getBlobIDOf(targetFilePath);
-            if(curCommit.isTrackedSameBlob(targetFilePath, targetBlobID)) continue;
+            if (curCommit.isTrackedSameBlob(targetFilePath, targetBlobID)) {
+                continue;
+            }
             File file = getFileFromCWD(targetFilePath);
             Blob targetBlob = loadBlobByID(targetCommitFilePathToBlobID.get(targetFilePath));
             writeContents(file, targetBlob.getContent());
         }
     }
 
-    private void clearStageAndPersist(){
+    private void clearStageAndPersist() {
         Stage addStage = loadAddStage();
         addStage.clear();
         addStage.persist(ADDSTAGE_FILE);
@@ -733,7 +727,6 @@ public class Repository {
 
     /** 1. Untracked Files is for files present in the working directory but neither staged for addition nor tracked.
      *  This includes files that have been staged for removal, but then re-created without Gitlet’s knowledge.
-     *
      *  2. If a working file is untracked in the current branch **【and】** would be overwritten by the checkout/reset
      *  */
     private void checkIfHasUntrackedFilesWillOverwriteBy(Commit targetCommit) {
@@ -742,32 +735,32 @@ public class Repository {
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
         Stage addStage = loadAddStage();
         Stage removeStage = loadRemoveStage();
-        for(String CWDFilePath : CWDFilePathToBlobID.keySet()){
+        for (String CWDFilePath : CWDFilePathToBlobID.keySet()) {
             // 1.
-            if(! addStage.isIndexedFile(CWDFilePath) && !curCommit.isTrackedFile(CWDFilePath)
-                    || removeStage.isIndexedFile(CWDFilePath)){
+            if (!addStage.isIndexedFile(CWDFilePath) && !curCommit.isTrackedFile(CWDFilePath)
+                    || removeStage.isIndexedFile(CWDFilePath)) {
                 String CWDFileBlobID = CWDFilePathToBlobID.get(CWDFilePath);
                 // 2.
-                if(targetCommit.willOverwrite(CWDFilePath, CWDFileBlobID)){
+                if (targetCommit.willOverwrite(CWDFilePath, CWDFileBlobID)) {
                     exit("There is an untracked file in the way; delete it, or add and commit it first.");
                 }
             }
         }
     }
 
-    public void branch(String branchName){
+    public void branch(String branchName) {
         checkIfBranchExisted(branchName);
         Commit curCommit = loadCurCommit();
         setOrCreateBranch(branchName, curCommit.getID());
     }
 
-    public void rm_branch(String branchName){
+    public void rm_branch(String branchName) {
         checkIfBranchNotExisted(branchName, "A branch with that name does not exist.");
         checkIfIsCurBranch(branchName, "Cannot remove the current branch.");
         deleteBranch(branchName);
     }
 
-    private boolean isBranchExisted(String branchName){
+    private boolean isBranchExisted(String branchName) {
         File file = null;
         String[] branches = branchName.split(File.separator);
         if (branches.length == 1) {
@@ -786,14 +779,14 @@ public class Repository {
     }
     /** 因为测试用例严格规定了不同的错误输出语句，
      *  因此只能从checkIfBranchExisted拆出来写check并输出 */
-    private void checkIfBranchNotExisted(String branchName, String errMessage){
-        if(!isBranchExisted(branchName)){
+    private void checkIfBranchNotExisted(String branchName, String errMessage) {
+        if (!isBranchExisted(branchName)) {
             exit(errMessage);
         }
     }
 
-    private void checkIfIsCurBranch(String branchName, String errMessage){
-        if(branchName.equals(readCurBranchName())){
+    private void checkIfIsCurBranch(String branchName, String errMessage) {
+        if (branchName.equals(readCurBranchName())) {
             exit(errMessage);
         }
     }
@@ -802,12 +795,12 @@ public class Repository {
      *  Removes tracked files that are not present in that commit.
      *  Also moves the current branch’s head to that commit node.
      */
-    public void reset(String targetCommitID){
+    public void reset(String targetCommitID) {
         // TODO:这里实现的是--hard模式，后续可以支持--soft和--mixed模式
         Commit targetCommit = loadCommitByID(targetCommitID);
-        if(targetCommit == null){
+        if (targetCommit == null) {
             exit("No commit with that id exists.");
-        }else{
+        } else {
             checkIfHasUntrackedFilesWillOverwriteBy(targetCommit);
 
             changeCWDAndClearStageTo(targetCommit);
@@ -817,7 +810,7 @@ public class Repository {
         }
     }
 
-    public void merge(String otherBranchName){
+    public void merge(String otherBranchName) {
         checkIfCurBranchHasUnCommitted();
         checkIfBranchNotExisted(otherBranchName, "A branch with that name does not exist.");
         checkIfIsCurBranch(otherBranchName, "Cannot merge a branch with itself.");
@@ -849,21 +842,21 @@ public class Repository {
         // 更新当前branch的head为新commit
         setCurBranchHeadTo(newCommit.getID());
 
-        if(!cfFilePathToBlob.isEmpty()){
+        if (!cfFilePathToBlob.isEmpty()) {
             exit("Encountered a merge conflict.");
         }
     }
 
-    private void checkIfCurBranchHasUnCommitted(){
-        if(!loadAddStage().isEmpty() || !loadRemoveStage().isEmpty()){
+    private void checkIfCurBranchHasUnCommitted() {
+        if (!loadAddStage().isEmpty() || !loadRemoveStage().isEmpty()) {
             exit("You have uncommitted changes.");
         }
     }
 
-    private void checkIfSplitIsOneOf(Commit split, Commit other, Commit head){
-        if(split.equals(other)){
+    private void checkIfSplitIsOneOf(Commit split, Commit other, Commit head) {
+        if (split.equals(other)) {
             exit("Given branch is an ancestor of the current branch.");
-        }else if(split.equals(head)){
+        } else if(split.equals(head)) {
             // take curBranchHead fast moved to other head
             // 将当前分支头的文件内容覆盖为目标分支的head的所有文件
             changeCWDAndClearStageTo(other);
@@ -873,19 +866,19 @@ public class Repository {
         }
     }
 
-    private Commit findSplitPoint(Commit head, Commit other){
+    private Commit findSplitPoint(Commit head, Commit other) {
         Map<String, Integer> headAncestors = findAncestors(head);
         Queue<Commit> queue = new ArrayDeque<>();
         queue.offer(other);
-        while(!queue.isEmpty()){
+        while (!queue.isEmpty()) {
             int size = queue.size();
-            while(size > 0){
+            while (size > 0) {
                 Commit cur = queue.poll();
-                if(headAncestors.containsKey(cur.getID())){
+                if (headAncestors.containsKey(cur.getID())) {
                     return cur;
                 }
-                if(!isInitCommit(cur)){
-                    for(String parentID : cur.getParents()){
+                if (!isInitCommit(cur)) {
+                    for (String parentID : cur.getParents()) {
                         Commit parent = loadCommitByID(parentID);
                         queue.offer(parent);
                     }
@@ -896,19 +889,19 @@ public class Repository {
         return new Commit();
     }
 
-    private Map<String, Integer> findAncestors(Commit commit){
+    private Map<String, Integer> findAncestors(Commit commit) {
         Map<String, Integer> map = new TreeMap<>();
         Queue<Commit> queue = new ArrayDeque<>();
         queue.offer(commit);
         int depth = 1;
-        while(!queue.isEmpty()){
+        while (!queue.isEmpty()) {
             int size = queue.size();
-            while(size > 0){
+            while (size > 0) {
                 Commit cur = queue.poll();
                 // putIfAbsent, if the KEY cur is existed, prevent put multi initCommit
                 map.putIfAbsent(cur.getID(), depth);
-                if(!isInitCommit(cur)){
-                    for(String parentID : cur.getParents()){
+                if (!isInitCommit(cur)) {
+                    for (String parentID : cur.getParents()) {
                         Commit parent = loadCommitByID(parentID);
                         queue.offer(parent);
                     }
@@ -923,15 +916,15 @@ public class Repository {
     private Map<String, String> mergeNewPathToBlob(Map<String, String> headFilePathToBlob,
                                                              Map<String, String> owFilePathToBlob,
                                                              Map<String, String> rmFilePathToBlob,
-                                                             Map<String, String> cfFilePathToBlob){
+                                                             Map<String, String> cfFilePathToBlob) {
         Map<String, String> newFilePathToBlob = new TreeMap<>(headFilePathToBlob);
-        for(String owFilePath : owFilePathToBlob.keySet()){
+        for (String owFilePath : owFilePathToBlob.keySet()) {
             newFilePathToBlob.put(owFilePath, owFilePathToBlob.get(owFilePath));
         }
-        for(String rmFilePath : rmFilePathToBlob.keySet()){
+        for (String rmFilePath : rmFilePathToBlob.keySet()) {
             newFilePathToBlob.remove(rmFilePath);
         }
-        for(String cfFilePath : cfFilePathToBlob.keySet()){
+        for (String cfFilePath : cfFilePathToBlob.keySet()) {
             newFilePathToBlob.put(cfFilePath, cfFilePathToBlob.get(cfFilePath));
         }
         return newFilePathToBlob;
@@ -941,28 +934,25 @@ public class Repository {
     /**
      * 1. modified in other but not head, overwrite it with other
      * 5. neither in split nor head but in other, write it with other
-     * @param split
-     * @param head
-     * @param other
      */
-    private Map<String, String> overwriteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other){
+    private Map<String, String> overwriteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other) {
         Map<String, String> splitMap = split.getPathToBlobID();
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
 
         Map<String, String> overwriteList = new TreeMap<>();
-        for(String filepath : allFiles){
+        for (String filepath : allFiles) {
             String splitVersion = splitMap.get(filepath);
             String headVersion = headMap.get(filepath);
             String otherVersion = otherMap.get(filepath);
-            if((splitVersion != null && otherVersion != null && !splitVersion.equals(otherVersion) && splitVersion.equals(headVersion))
-                    ||(splitVersion == null && headVersion == null && otherVersion != null)){
+            if ((splitVersion != null && otherVersion != null && !splitVersion.equals(otherVersion) && splitVersion.equals(headVersion))
+                    ||(splitVersion == null && headVersion == null && otherVersion != null)) {
                 overwriteList.put(filepath, otherVersion);
             }
         }
 
         // overwrite and write
-        for(String filePath : overwriteList.keySet()){
+        for (String filePath : overwriteList.keySet()) {
             checkout(other.getID(), filePath);
         }
 
@@ -971,23 +961,19 @@ public class Repository {
 
     /**
      * 3.2. modified in head and other in different ways, existed conflict
-     * @param allFiles
-     * @param split
-     * @param head
-     * @param other
      */
-    private Map<String, String> mergeConflict(List<String> allFiles, Commit split, Commit head, Commit other){
+    private Map<String, String> mergeConflict(List<String> allFiles, Commit split, Commit head, Commit other) {
         Map<String, String> splitMap = split.getPathToBlobID();
         Map<String, String> headMap = head.getPathToBlobID();
         Map<String, String> otherMap = other.getPathToBlobID();
 
         Map<String, String> conflictList = new TreeMap<>();
-        for(String filePath : allFiles){
+        for (String filePath : allFiles) {
             String splitVersion = splitMap.get(filePath);
             String headVersion = headMap.get(filePath);
             String otherVersion = otherMap.get(filePath);
 
-            if(!equal(splitVersion, headVersion) && !equal(splitVersion, otherVersion) && !equal(headVersion, otherVersion)){
+            if (!equal(splitVersion, headVersion) && !equal(splitVersion, otherVersion) && !equal(headVersion, otherVersion)) {
                 Blob nb = generateConflictBlob(headVersion, otherVersion);
                 nb.persist(OBJECTS_DIR);
                 File file = getFileFromCWD(filePath);
@@ -999,7 +985,7 @@ public class Repository {
         return conflictList;
     }
 
-    private Blob generateConflictBlob(String headBlobID, String otherBlobID){
+    private Blob generateConflictBlob(String headBlobID, String otherBlobID) {
         String headContent = headBlobID == null ? "":new String(loadBlobByID(headBlobID).getContent(), StandardCharsets.UTF_8);
         String otherContent = otherBlobID == null ? "":new String(loadBlobByID(otherBlobID).getContent(), StandardCharsets.UTF_8);;
         String newContent = "<<<<<<< HEAD\n" +
@@ -1013,10 +999,6 @@ public class Repository {
 
     /**
      * 6. unmodified in head but not present in other, remove it
-     * @param allFiles
-     * @param split
-     * @param head
-     * @param other
      */
     private Map<String, String> deleteMergeFiles(List<String> allFiles, Commit split, Commit head, Commit other) {
         Map<String, String> splitMap = split.getPathToBlobID();
@@ -1024,15 +1006,15 @@ public class Repository {
         Map<String, String> otherMap = other.getPathToBlobID();
 
         Map<String, String> removeList = new TreeMap<>();
-        for(String filePath : allFiles){
+        for (String filePath : allFiles) {
             String splitVersion = splitMap.get(filePath);
             String headVersion = headMap.get(filePath);
             String otherVersion = otherMap.get(filePath);
-            if(splitVersion != null && splitVersion.equals(headVersion) && otherVersion == null){
+            if (splitVersion != null && splitVersion.equals(headVersion) && otherVersion == null) {
                 removeList.put(filePath, headVersion);
             }
         }
-        for(String filePath : removeList.keySet()){
+        for (String filePath : removeList.keySet()) {
             File file = getFileFromCWD(filePath);
             restrictedDelete(file);
         }
@@ -1167,7 +1149,7 @@ public class Repository {
         }
     }
 
-    private void copyCommitAndBlobs(Repository remote, Commit remoteCommit){
+    private void copyCommitAndBlobs(Repository remote, Commit remoteCommit) {
         File commitFile = join(OBJECTS_DIR, remoteCommit.getID());
         if (commitFile.exists()) {
             return;
@@ -1257,29 +1239,27 @@ public class Repository {
             }
 
             Commit commit = loadCommitByID(commitId);
-            cpCommitToRemote(remote, commit, commitId);
-            cpCommitBlobsToRemote(remote, commit, commitId);
+            cpCommitToRemote(remote, commit);
+            cpCommitBlobsToRemote(remote, commit);
         }
     }
 
     /**
      * Cp commit persisting contents to remote.
-     * @param remote
-     * @param commit
-     * @param commitId
+     * @param remote remote
+     * @param commit commit
      */
-    private void cpCommitToRemote(Repository remote, Commit commit, String commitId) {
-        File remoteCommitFile = join(remote.OBJECTS_DIR, commitId);
+    private void cpCommitToRemote(Repository remote, Commit commit) {
+        File remoteCommitFile = join(remote.OBJECTS_DIR, commit.getID());
         writeObject(remoteCommitFile, commit);
     }
 
     /**
      * Cp commit's blobs's persisting contents to remote.
-     * @param remote
-     * @param commit
-     * @param commitId
+     * @param remote remote
+     * @param commit commit
      */
-    private void cpCommitBlobsToRemote(Repository remote, Commit commit, String commitId) {
+    private void cpCommitBlobsToRemote(Repository remote, Commit commit) {
         if (!commit.getPathToBlobID().isEmpty()) {
             for (Map.Entry<String, String> entry : commit.getPathToBlobID().entrySet()) {
                 String blobId = entry.getValue();
