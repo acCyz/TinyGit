@@ -332,8 +332,7 @@ public class Repository {
         setCurBranchHeadTo(newCommit.getID());
 
         // 清空并持久化暂存区
-        clearStage(addStage, removeStage);
-        persistStage(addStage, removeStage);
+        clearStageAndPersist();
     }
 
     private void checkIfStageChanged(Stage addStage, Stage removeStage) {
@@ -367,14 +366,14 @@ public class Repository {
         return newParents;
     }
 
-    private void clearStage(Stage addStage, Stage removeStage) {
-        addStage.clear();
-        removeStage.clear();
+    private void clearStage() {
+        lazyAddStage.get().clear();
+        lazyRemoveStage.get().clear();
     }
 
-    private void persistStage(Stage addStage, Stage removeStage) {
-        addStage.persist(ADDSTAGE_FILE);
-        removeStage.persist(REMOVESTAGE_FILE);
+    private void persistStage() {
+        lazyAddStage.get().persist(ADDSTAGE_FILE);
+        lazyRemoveStage.get().persist(REMOVESTAGE_FILE);
     }
 
     public void rm(String fileName) {
@@ -708,12 +707,8 @@ public class Repository {
 
     // TODO: 调用两个子函数
     private void clearStageAndPersist() {
-        Stage addStage = lazyAddStage.get();
-        addStage.clear();
-        addStage.persist(ADDSTAGE_FILE);
-        Stage removeStage = lazyRemoveStage.get();
-        removeStage.clear();
-        removeStage.persist(REMOVESTAGE_FILE);
+        clearStage();
+        persistStage();
     }
 
     /** 1. Untracked Files is for files present in the working directory but neither staged for addition nor tracked.
