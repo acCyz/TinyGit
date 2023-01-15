@@ -375,6 +375,12 @@ public class Repository {
         lazyRemoveStage.get().persist(REMOVESTAGE_FILE);
     }
 
+    private void clearStageAndPersist() {
+        clearStage();
+        persistStage();
+    }
+
+
     public void rm(String fileName) {
         File file = getFileFromCWD(fileName);
         String filePath = getRelativePath(file);
@@ -704,12 +710,6 @@ public class Repository {
             Blob targetBlob = loadBlobByID(targetCommitFilePathToBlobID.get(targetFilePath));
             writeContents(file, targetBlob.getContent());
         }
-    }
-
-    // TODO: 调用两个子函数
-    private void clearStageAndPersist() {
-        clearStage();
-        persistStage();
     }
 
     /** 1. Untracked Files is for files present in the working directory but neither staged for addition nor tracked.
