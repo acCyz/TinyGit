@@ -17,6 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.Supplier;
 
 
 /** Assorted utilities.
@@ -330,6 +331,21 @@ class Utils {
                 throw new IllegalArgumentException(String.format("mkdir: %s: Failed to create.", fileParent.getPath()));
             }
         }
+    }
+
+    /**
+     * <pre>
+     * Returns a supplier which caches the instance retrieved during
+     * the first call to get() and returns that value on subsequent calls to get().
+     * Get a lazy initialized value.
+     * <pre>
+     *
+     * @param delegate Function to get the value
+     * @param <T>      Type of the value
+     * @return Lazy instance
+     */
+    public static <T> LazySingleton<T> lazy(Supplier<T> delegate) {
+        return new LazySingleton<>(delegate);
     }
 
 

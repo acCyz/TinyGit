@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.*;
 
 import static gitlet.Utils.*;
+import static gitlet.Utils.lazy;
 
 
 /** Represents a gitlet repository.
@@ -20,23 +21,6 @@ public class Repository {
     private static final String DEFAULT_BRANCH_NAME = "master";
     private final File CWD;
     /** The .gitlet directory. */
-    /*
-     *   .gitlet
-     *      |--objects
-     *      |     |--commit and blob
-     *      |--refs
-     *      |    |--heads
-     *      |         |--master
-     *      |    |--remotes
-     *      |         |--orig1
-     *      |              |--HEAD(cur branch of orig1)
-     *      |              |--main(branch heads)
-     *      |         |--orig2
-     *      |--stage
-     *      |--HEAD (current local head)
-     *      |--FETCH_HEAD (latest commitID of fetched remote branches)
-     *      |--ORIG_HEAD (the LCA commitID of HEAD and remote)
-     */
     private File GITLET_DIR;
     private File OBJECTS_DIR;
     private File REFS_DIR;
@@ -47,9 +31,15 @@ public class Repository {
     private File CONFIG_FILE;
     private File HEAD_FILE;
 
-    /** TODO:维护curCommit、stage等变量，在Repository类初始化时，自动加载
+    /** 延迟加载curCommit、stage等变量，在Repository类初始化时，预先加载生成类
      * 从而可以方便的进行操作、清空和持久化
      */
+    private final LazySingleton<Commit> head = lazy(() -> loadCurCommit());
+
+    private final LazySingleton<Stage> addStage = lazy(() -> loadAddStage());
+
+    private final LazySingleton<Stage> removeStage = lazy(() -> loadRemoveStage());
+
     public Repository() {
         CWD = new File(System.getProperty("user.dir"));
         setDirs();
@@ -176,9 +166,9 @@ public class Repository {
         String blobID = blob.getID();
         Stage addStage = loadAddStage();
         Stage removeStage = loadRemoveStage();
-        Commit curCommit = loadCurCommit();
+        Commit curCommit = head.get();
 
-        // 如果该blobid和当前commit跟踪的blobid一模一样（即工作区的该文件相对于最近commit没更改任何内容），
+        // 如果该blobId和当前commit跟踪的blobid一模一样（即工作区的该文件相对于最近commit没更改任何内容），
         // 则不添加进addstage以免重复commit该文件
         // 同时如果stage里有它，则将其移出stage
         if (curCommit.isTrackedSameBlob(filePath, blobID)) {
@@ -329,7 +319,7 @@ public class Repository {
         // 检查暂存区是否非空
         checkIfStageChanged(addStage, removeStage);
 
-        Commit preCommit = loadCurCommit();
+        Commit preCommit = head.get();
 
         // 创建新commit对象并继承父亲的数据，并指向父亲
         // 根据stage修改
@@ -392,7 +382,7 @@ public class Repository {
         File file = getFileFromCWD(fileName);
         String filePath = getRelativePath(file);
         Stage addStage = loadAddStage();
-        Commit curCommit = loadCurCommit();
+        Commit curCommit = head.get();
 
         // 如果添加到了暂存区，则从当前暂存区删除
         if (addStage.isIndexedFile(filePath)) {
@@ -419,7 +409,7 @@ public class Repository {
     }
 
     public void log() {
-        Commit curCommit = loadCurCommit();
+        Commit curCommit = head.get();
         List<String> logInfo = new ArrayList<>();
         while(!isInitCommit(curCommit)) {
             logInfo.addAll(generateCommitInfo(curCommit));
@@ -474,12 +464,13 @@ public class Repository {
         List<String> logInfo = new ArrayList<>();
         for (String id : commitList) {
             try{
-                Commit commit = readObject(join(OBJECTS_DIR, id), Commit.class);
-                if (commit.getMessage().contains(message)) {
+                Commit commit = loadCommitByID(id);
+                if (commit != null && commit.getMessage().contains(message)) {
                     logInfo.add(commit.getID());
                 }
             }catch (Exception ignored) {
             }
+
         }
 
         if (logInfo.size() == 0) {
@@ -535,7 +526,7 @@ public class Repository {
 
     private List<String> listUnStagedModificationsAndUntracked() {
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
-        Map<String, String> commitFilePathToBlobID = loadCurCommit().getPathToBlobID();
+        Map<String, String> commitFilePathToBlobID = head.get().getPathToBlobID();
         Map<String, String> addStageIndex = loadAddStage().getIndex();
         Map<String, String> removeStageIndex = loadRemoveStage().getIndex();
 
@@ -691,7 +682,7 @@ public class Repository {
     }
 
     private void deleteTargetCommitUntrackedCWDFiles(Commit targetCommit) {
-        Commit curCommit = loadCurCommit();
+        Commit curCommit = head.get();
         Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
         for (String filePath : curCommitFilePathToBlobID.keySet()) {
             if (!targetCommit.isTrackedFile(filePath)) {
@@ -703,7 +694,7 @@ public class Repository {
 
     // TODO:用map交集操作来寻找两个commit共同追踪的部分
     private void overwriteCWDFilesWith(Commit targetCommit) {
-        Commit curCommit = loadCurCommit();
+        Commit curCommit = head.get();
         Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
         for (String targetFilePath : targetCommitFilePathToBlobID.keySet()) {
             String targetBlobID = targetCommit.getBlobIDOf(targetFilePath);
@@ -716,6 +707,7 @@ public class Repository {
         }
     }
 
+    // TODO: 调用两个子函数
     private void clearStageAndPersist() {
         Stage addStage = loadAddStage();
         addStage.clear();
@@ -730,7 +722,7 @@ public class Repository {
      *  2. If a working file is untracked in the current branch **【and】** would be overwritten by the checkout/reset
      *  */
     private void checkIfHasUntrackedFilesWillOverwriteBy(Commit targetCommit) {
-        Commit curCommit = loadCurCommit();
+        Commit curCommit = head.get();
         // TODO:增加对多层目录的文件检测，目前只是在根目录
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
         Stage addStage = loadAddStage();
@@ -750,7 +742,7 @@ public class Repository {
 
     public void branch(String branchName) {
         checkIfBranchExisted(branchName);
-        Commit curCommit = loadCurCommit();
+        Commit curCommit = head.get();
         setOrCreateBranch(branchName, curCommit.getID());
     }
 
@@ -815,7 +807,7 @@ public class Repository {
         checkIfBranchNotExisted(otherBranchName, "A branch with that name does not exist.");
         checkIfIsCurBranch(otherBranchName, "Cannot merge a branch with itself.");
 
-        Commit headCommit = loadCurCommit();
+        Commit headCommit = head.get();
         Commit otherCommit = loadCommitByID(readBranchHead(otherBranchName));
         checkIfHasUntrackedFilesWillOverwriteBy(otherCommit);
 
@@ -1043,33 +1035,20 @@ public class Repository {
         checkIfRemoteNameExisted(remoteName);
         // TODO:check user info and server address valid
 
-        // java.io.File.separator
         String validAddress = remoteAddress.replaceAll("/", File.separator);
         // do not mkdirs in add_remote
         /*
          * same as git
         [remote "origin"]
-            url = ..\\remotegit\\.git
+            url = ..\\remote\\.git
             fetch = +refs/heads/*:refs/remotes/origin/*
          */
         addConfig(remoteName, validAddress);
     }
 
     public void checkIfRemoteNameExisted(String remoteName) {
-        /*
-        File remoteDir = join(REMOTES_DIR, remoteName);
-        if (remoteDir.isDirectory()) {
-
-        }
-        *
-        */
-        String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
-        String target = "[remote \"" + remoteName + "\"]";
-        for (int i = 0; i < contents.length;) {
-            if (contents[i].equals(target)) {
-                exit("A remote with that name already exists.");
-            }
-            i += 2;
+        if (readRemoteAddress(remoteName) != null) {
+            exit("A remote with that name already exists.");
         }
     }
 
@@ -1081,22 +1060,9 @@ public class Repository {
     }
 
     public void checkIfRemoteNameNotExisted(String remoteName) {
-        /*
-        File remoteDir = join(REMOTES_DIR, remoteName);
-        if (!remoteDir.isDirectory()) {
+        if (readRemoteAddress(remoteName) == null) {
             exit("A remote with that name does not exist.");
         }
-        *
-        */
-        String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
-        String target = "[remote \"" + remoteName + "\"]";
-        for (int i = 0; i < contents.length;) {
-            if (contents[i].equals(target)) {
-                return;
-            }
-            i += 2;
-        }
-        exit("A remote with that name does not exist.");
     }
 
     public void fetch(String remoteName, String remoteBranchName){
@@ -1120,7 +1086,7 @@ public class Repository {
 
 
     private String readRemoteAddress(String remoteName) {
-        String path = "";
+        String path = null;
         String[] contents = readContentsAsString(CONFIG_FILE).split("\n");
         for (int i = 0; i < contents.length;) {
             if (contents[i].contains(remoteName)) {
@@ -1195,7 +1161,7 @@ public class Repository {
 
         String remoteBranchHead = remote.readBranchHead(remoteBranchName);
         Commit remoteHead = remote.loadCommitByID(remoteBranchHead);
-        List<String> historyId = getHistoryId(loadCurCommit());
+        List<String> historyId = getHistoryId(head.get());
         // If the remote branch’s head is not in the
         // history of the current local head.
         if (!historyId.contains(remoteHead.getID())) {
@@ -1208,7 +1174,7 @@ public class Repository {
         // Then, the remote should reset to the front of
         // the appended commits.
         // 存疑，这里要切换当前分支吗？
-        String localCurHead = readCurCommitID();
+        String localCurHead = head.get().getID();
         if (!remoteBranchName.equals(remote.readCurBranchName())) {
             remote.checkoutBranch(remoteBranchName);
         }
