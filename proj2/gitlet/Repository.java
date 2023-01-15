@@ -73,7 +73,7 @@ public class Repository {
         this.REMOTES_DIR = join(REFS_DIR, "remotes");
         this.ADDSTAGE_FILE = join(GITLET_DIR, "add_stage");
         this.REMOVESTAGE_FILE = join(GITLET_DIR, "remove_stage");
-        this.CONFIG_FILE = join(GITLET_DIR, "config");;
+        this.CONFIG_FILE = join(GITLET_DIR, "config");
         this.HEAD_FILE = join(GITLET_DIR, "HEAD");
     }
 
@@ -1215,7 +1215,7 @@ public class Repository {
     }
 
     /**
-     * Cp commit's blobs's persisting contents to remote.
+     * Cp commit's blob's persisting contents to remote.
      * @param remote remote
      * @param commit commit
      */
@@ -1230,12 +1230,5 @@ public class Repository {
             }
         }
     }
-
-
-
-
-
-
-
 
 }
