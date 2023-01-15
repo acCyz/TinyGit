@@ -34,11 +34,11 @@ public class Repository {
     /** 延迟加载curCommit、stage等变量，在Repository类初始化时，预先加载生成类
      * 从而可以方便的进行操作、清空和持久化
      */
-    private final LazySingleton<Commit> head = lazy(() -> loadCurCommit());
+    private final LazySingleton<Commit> lazyHead = lazy(this::loadCurCommit);
 
-    private final LazySingleton<Stage> addStage = lazy(() -> loadAddStage());
+    private final LazySingleton<Stage> lazyAddStage = lazy(this::loadAddStage);
 
-    private final LazySingleton<Stage> removeStage = lazy(() -> loadRemoveStage());
+    private final LazySingleton<Stage> lazyRemoveStage = lazy(this::loadRemoveStage);
 
     public Repository() {
         CWD = new File(System.getProperty("user.dir"));
@@ -164,9 +164,9 @@ public class Repository {
     public void addBlob(File file, Blob blob) {
         String filePath = getRelativePath(file);
         String blobID = blob.getID();
-        Stage addStage = loadAddStage();
-        Stage removeStage = loadRemoveStage();
-        Commit curCommit = head.get();
+        Stage addStage = lazyAddStage.get();
+        Stage removeStage = lazyRemoveStage.get();
+        Commit curCommit = lazyHead.get();
 
         // 如果该blobId和当前commit跟踪的blobid一模一样（即工作区的该文件相对于最近commit没更改任何内容），
         // 则不添加进addstage以免重复commit该文件
@@ -313,13 +313,13 @@ public class Repository {
             exit("Please enter a commit message.");
         }
 
-        Stage addStage = loadAddStage();
-        Stage removeStage = loadRemoveStage();
+        Stage addStage = lazyAddStage.get();
+        Stage removeStage = lazyRemoveStage.get();
 
         // 检查暂存区是否非空
         checkIfStageChanged(addStage, removeStage);
 
-        Commit preCommit = head.get();
+        Commit preCommit = lazyHead.get();
 
         // 创建新commit对象并继承父亲的数据，并指向父亲
         // 根据stage修改
@@ -381,8 +381,8 @@ public class Repository {
     public void rm(String fileName) {
         File file = getFileFromCWD(fileName);
         String filePath = getRelativePath(file);
-        Stage addStage = loadAddStage();
-        Commit curCommit = head.get();
+        Stage addStage = lazyAddStage.get();
+        Commit curCommit = lazyHead.get();
 
         // 如果添加到了暂存区，则从当前暂存区删除
         if (addStage.isIndexedFile(filePath)) {
@@ -391,7 +391,7 @@ public class Repository {
         } else if (curCommit.isTrackedFile(filePath)) {
             // 如果文件被当前commit跟踪，则将其跟踪的filepath:boloID版本移入removestage
             // 并从CWD删除当前的文件
-            Stage removeStage = loadRemoveStage();
+            Stage removeStage = lazyRemoveStage.get();
             String removeBlobID = curCommit.getBlobIDOf(filePath);
             removeStage.add(filePath, removeBlobID);
             removeStage.persist(REMOVESTAGE_FILE);
@@ -409,7 +409,7 @@ public class Repository {
     }
 
     public void log() {
-        Commit curCommit = head.get();
+        Commit curCommit = lazyHead.get();
         List<String> logInfo = new ArrayList<>();
         while(!isInitCommit(curCommit)) {
             logInfo.addAll(generateCommitInfo(curCommit));
@@ -506,14 +506,14 @@ public class Repository {
 
     private List<String> listStages() {
         List<String> addInfo = new ArrayList<>();
-        Stage addStage = loadAddStage();
+        Stage addStage = lazyAddStage.get();
         if (!addStage.isEmpty()) {
             addInfo.addAll(addStage.getIndexedFileNames());
         }
         wrapInfo("=== Staged Files ===", addInfo);
 
         List<String> rmInfo = new ArrayList<>();
-        Stage removeStage = loadRemoveStage();
+        Stage removeStage = lazyRemoveStage.get();
         if (!removeStage.isEmpty()) {
             rmInfo.addAll(removeStage.getIndexedFileNames());
         }
@@ -526,9 +526,9 @@ public class Repository {
 
     private List<String> listUnStagedModificationsAndUntracked() {
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
-        Map<String, String> commitFilePathToBlobID = head.get().getPathToBlobID();
-        Map<String, String> addStageIndex = loadAddStage().getIndex();
-        Map<String, String> removeStageIndex = loadRemoveStage().getIndex();
+        Map<String, String> commitFilePathToBlobID = lazyHead.get().getPathToBlobID();
+        Map<String, String> addStageIndex = lazyAddStage.get().getIndex();
+        Map<String, String> removeStageIndex = lazyRemoveStage.get().getIndex();
 
         List<String> info1 = listUnStagedModifications(CWDFilePathToBlobID,
                                                       commitFilePathToBlobID,
@@ -682,7 +682,7 @@ public class Repository {
     }
 
     private void deleteTargetCommitUntrackedCWDFiles(Commit targetCommit) {
-        Commit curCommit = head.get();
+        Commit curCommit = lazyHead.get();
         Map<String, String> curCommitFilePathToBlobID = curCommit.getPathToBlobID();
         for (String filePath : curCommitFilePathToBlobID.keySet()) {
             if (!targetCommit.isTrackedFile(filePath)) {
@@ -694,7 +694,7 @@ public class Repository {
 
     // TODO:用map交集操作来寻找两个commit共同追踪的部分
     private void overwriteCWDFilesWith(Commit targetCommit) {
-        Commit curCommit = head.get();
+        Commit curCommit = lazyHead.get();
         Map<String, String> targetCommitFilePathToBlobID = targetCommit.getPathToBlobID();
         for (String targetFilePath : targetCommitFilePathToBlobID.keySet()) {
             String targetBlobID = targetCommit.getBlobIDOf(targetFilePath);
@@ -709,10 +709,10 @@ public class Repository {
 
     // TODO: 调用两个子函数
     private void clearStageAndPersist() {
-        Stage addStage = loadAddStage();
+        Stage addStage = lazyAddStage.get();
         addStage.clear();
         addStage.persist(ADDSTAGE_FILE);
-        Stage removeStage = loadRemoveStage();
+        Stage removeStage = lazyRemoveStage.get();
         removeStage.clear();
         removeStage.persist(REMOVESTAGE_FILE);
     }
@@ -722,11 +722,11 @@ public class Repository {
      *  2. If a working file is untracked in the current branch **【and】** would be overwritten by the checkout/reset
      *  */
     private void checkIfHasUntrackedFilesWillOverwriteBy(Commit targetCommit) {
-        Commit curCommit = head.get();
+        Commit curCommit = lazyHead.get();
         // TODO:增加对多层目录的文件检测，目前只是在根目录
         Map<String, String> CWDFilePathToBlobID = getCWDFilePathToBlobID();
-        Stage addStage = loadAddStage();
-        Stage removeStage = loadRemoveStage();
+        Stage addStage = lazyAddStage.get();
+        Stage removeStage = lazyRemoveStage.get();
         for (String CWDFilePath : CWDFilePathToBlobID.keySet()) {
             // 1.
             if (!addStage.isIndexedFile(CWDFilePath) && !curCommit.isTrackedFile(CWDFilePath)
@@ -742,7 +742,7 @@ public class Repository {
 
     public void branch(String branchName) {
         checkIfBranchExisted(branchName);
-        Commit curCommit = head.get();
+        Commit curCommit = lazyHead.get();
         setOrCreateBranch(branchName, curCommit.getID());
     }
 
@@ -807,7 +807,7 @@ public class Repository {
         checkIfBranchNotExisted(otherBranchName, "A branch with that name does not exist.");
         checkIfIsCurBranch(otherBranchName, "Cannot merge a branch with itself.");
 
-        Commit headCommit = head.get();
+        Commit headCommit = lazyHead.get();
         Commit otherCommit = loadCommitByID(readBranchHead(otherBranchName));
         checkIfHasUntrackedFilesWillOverwriteBy(otherCommit);
 
@@ -840,7 +840,7 @@ public class Repository {
     }
 
     private void checkIfCurBranchHasUnCommitted() {
-        if (!loadAddStage().isEmpty() || !loadRemoveStage().isEmpty()) {
+        if (lazyAddStage.get().isEmpty() || lazyRemoveStage.get().isEmpty()) {
             exit("You have uncommitted changes.");
         }
     }
@@ -1161,7 +1161,7 @@ public class Repository {
 
         String remoteBranchHead = remote.readBranchHead(remoteBranchName);
         Commit remoteHead = remote.loadCommitByID(remoteBranchHead);
-        List<String> historyId = getHistoryId(head.get());
+        List<String> historyId = getHistoryId(lazyHead.get());
         // If the remote branch’s head is not in the
         // history of the current local head.
         if (!historyId.contains(remoteHead.getID())) {
@@ -1174,7 +1174,7 @@ public class Repository {
         // Then, the remote should reset to the front of
         // the appended commits.
         // 存疑，这里要切换当前分支吗？
-        String localCurHead = head.get().getID();
+        String localCurHead = lazyHead.get().getID();
         if (!remoteBranchName.equals(remote.readCurBranchName())) {
             remote.checkoutBranch(remoteBranchName);
         }
