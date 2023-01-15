@@ -186,8 +186,7 @@ public class Repository {
             blob.persist(OBJECTS_DIR);
         }
 
-        addStage.persist(ADDSTAGE_FILE);
-        removeStage.persist(REMOVESTAGE_FILE);
+        persistStage();
     }
 
     private void addConfig(String remoteName, String remoteAddress) {
@@ -385,19 +384,21 @@ public class Repository {
         // 如果添加到了暂存区，则从当前暂存区删除
         if (addStage.isIndexedFile(filePath)) {
             addStage.delete(filePath);
-            addStage.persist(ADDSTAGE_FILE);
+            //addStage.persist(ADDSTAGE_FILE);
         } else if (curCommit.isTrackedFile(filePath)) {
             // 如果文件被当前commit跟踪，则将其跟踪的filepath:boloID版本移入removestage
             // 并从CWD删除当前的文件
             Stage removeStage = lazyRemoveStage.get();
             String removeBlobID = curCommit.getBlobIDOf(filePath);
             removeStage.add(filePath, removeBlobID);
-            removeStage.persist(REMOVESTAGE_FILE);
+            //removeStage.persist(REMOVESTAGE_FILE);
             // 删除失败会返回false
             restrictedDelete(file);
         } else {
             exit("No reason to remove the file.");
         }
+
+        persistStage();
     }
 
     private void printLog(List<String> logInfo) {
