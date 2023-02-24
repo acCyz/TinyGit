@@ -7,8 +7,8 @@
   - [Git的仓库目录结构](git的仓库目录结构)
   
   - [Git工作流](#git工作流)
-  
-  - 
+
+* [TinyGit实现](#tinygit实现)
 
 # TinyGit
 
