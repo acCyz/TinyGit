@@ -1,3 +1,5 @@
+@[toc]
+
 # TinyGit
 
 A simple local Git implementation， based on CS61B(UC, Berkeley)
@@ -5,8 +7,6 @@ A simple local Git implementation， based on CS61B(UC, Berkeley)
 本项目是简易版的Git实现，支持本地仓库功能和本地仓库之间的remote相关命令。项目实现框架遵循CS61B中的proj2-gitlet，其中各类命令的实现也遵循课程项目文档的要求，并通过了课程的gradescope中的所有测试。
 
 个人做这个项目的目的是通过自己用代码实践一些基础的Git命令实现，从而理解真实Git的工作机制和底层存储模型。
-
-[toc] 
 
 
 
