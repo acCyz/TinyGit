@@ -66,7 +66,7 @@ Gitlet对Git进行了简化：
 
 ![](https://cdn.nlark.com/yuque/0/2022/png/29672299/1663935190048-76f935a2-1362-479c-801c-ac858fc6589c.png)
 
-[Gitlet命令实现规范描述：The Commands]([Project 2: Gitlet | CS 61B Spring 2021](https://sp21.datastructur.es/materials/proj/proj2/proj2#the-commands))
+[Gitlet命令实现规范描述：The Commands]([Project 2: Gitlet | CS 61B Spring 2021](https://sp21.datastructur.es/materials/proj/proj2/proj2#the-commands)
 
 ## 实现简概
 
