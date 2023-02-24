@@ -1,10 +1,14 @@
-* [toc](#tinygit)
+[TinyGit](#tinygit)
 
-* 
+* [关于CS61B](关于cs61b)
 
-
-
-
+* [Git原理](git原理)
+  
+  - [Git的仓库目录结构](git的仓库目录结构)
+  
+  - [Git工作流](#git工作流)
+  
+  - 
 
 # TinyGit
 
