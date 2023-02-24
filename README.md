@@ -20,7 +20,7 @@ A simple local Git implementation， based on CS61B-sp2021(UC, Berkeley)
 
 # 关于CS61B
 
-[课程官网]([Main | CS 61B Spring 2022 (berkeley.edu)](https://inst.eecs.berkeley.edu/~cs61b/sp22/)):CS61B是UC伯克利 CS61 系列的第二门课程，注重数据结构与算法的设计，同时让学生有机会接触上千行的工程代码，通过 Java 初步领会软件工程的思想。Gitlet是该课程的Project之一。
+[课程官网]([Main | CS 61B Spring 2022 (berkeley.edu)](https://inst.eecs.berkeley.edu/~cs61b/sp22/)：CS61B是UC伯克利 CS61 系列的第二门课程，注重数据结构与算法的设计，同时让学生有机会接触上千行的工程代码，通过 Java 初步领会软件工程的思想。Gitlet是该课程的Project之一。
 
 一些资料整理：
 
