@@ -26,6 +26,8 @@ A simple local Git implementation， based on CS61B-sp2021(UC, Berkeley)
 
 - [A Hacker’s Guide to Git](https://wildlyinaccurate.com/a-hackers-guide-to-git/)
 
+- 推荐一个[Git命令可视化学习网站](https://learngitbranching.js.org/?locale=zh_CN)
+
 - [Gitlet Persistence](https://link.zhihu.com/?target=https%3A//paper.dropbox.com/doc/Gitlet-Persistence-zEnTGJhtUMtGr8ILYhoab)
 
 - Gitlet的前置实验：[Lab 6: Getting Started on Project 2](https://sp21.datastructur.es/materials/lab/lab6/lab6)
